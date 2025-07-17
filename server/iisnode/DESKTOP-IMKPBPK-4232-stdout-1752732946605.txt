@@ -1,0 +1,2 @@
+Server running on http://0.0.0.0:\\.\pipe\d85cecc9-97ba-4864-a59b-af6449d366b2
+MongoDB connected

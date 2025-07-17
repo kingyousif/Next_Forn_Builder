@@ -1,0 +1,12 @@
+Server running on http://0.0.0.0:\\.\pipe\f77dea3e-9ee9-42ef-b401-7610f37707b5
+MongoDB connected
+🚀 ~ fetchAttendance: ~ attendances: [
+  {
+    _id: new ObjectId('685a734dc87867ae8c951534'),
+    name: 'umed jalal',
+    userId: 405,
+    createdAt: 2025-06-24T09:43:41.936Z,
+    updatedAt: 2025-06-24T09:43:41.936Z,
+    __v: 0
+  }
+]

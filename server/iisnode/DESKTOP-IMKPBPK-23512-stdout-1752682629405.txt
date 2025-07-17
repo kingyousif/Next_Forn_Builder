@@ -1,0 +1,208 @@
+Server running on http://0.0.0.0:\\.\pipe\a3488132-49c0-4718-a438-d42c55e45cb6
+MongoDB connected
+🚀 ~ fetchAttendance: ~ attendances: [
+  {
+    _id: new ObjectId('685a734dc87867ae8c951534'),
+    name: 'umed jalal',
+    userId: 405,
+    createdAt: 2025-06-24T09:43:41.936Z,
+    updatedAt: 2025-06-24T09:43:41.936Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('685a734dc87867ae8c9513db'),
+    name: 'ako najat xwrshid',
+    userId: 37,
+    createdAt: 2025-06-24T09:43:41.443Z,
+    updatedAt: 2025-07-16T14:21:15.154Z,
+    __v: 0,
+    active: true
+  },
+  {
+    _id: new ObjectId('685a734dc87867ae8c9514b6'),
+    name: 'lava sardar muhammed',
+    userId: 252,
+    createdAt: 2025-06-24T09:43:41.786Z,
+    updatedAt: 2025-06-24T09:43:41.786Z,
+    __v: 0
+  }
+]
+🚀 ~ fetchAttendance: ~ attendances: [
+  {
+    _id: new ObjectId('685a734dc87867ae8c951534'),
+    name: 'umed jalal',
+    userId: 405,
+    createdAt: 2025-06-24T09:43:41.936Z,
+    updatedAt: 2025-06-24T09:43:41.936Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('685a734dc87867ae8c9513db'),
+    name: 'ako najat xwrshid',
+    userId: 37,
+    createdAt: 2025-06-24T09:43:41.443Z,
+    updatedAt: 2025-07-16T14:21:15.154Z,
+    __v: 0,
+    active: true
+  },
+  {
+    _id: new ObjectId('685a734dc87867ae8c9514b6'),
+    name: 'lava sardar muhammed',
+    userId: 252,
+    createdAt: 2025-06-24T09:43:41.786Z,
+    updatedAt: 2025-06-24T09:43:41.786Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('685a734dc87867ae8c9513d8'),
+    name: 'zhiwar jalal muhamad',
+    userId: 36,
+    createdAt: 2025-06-24T09:43:41.439Z,
+    updatedAt: 2025-06-24T09:43:41.439Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('685a734dc87867ae8c951480'),
+    name: 'zanyar tawfeeq hama',
+    userId: 194,
+    createdAt: 2025-06-24T09:43:41.697Z,
+    updatedAt: 2025-06-24T09:43:41.697Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('685a734ec87867ae8c951903'),
+    name: 'zaniar tahir abdulla',
+    userId: 791,
+    createdAt: 2025-06-24T09:43:42.640Z,
+    updatedAt: 2025-06-24T09:43:42.640Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('685a734ec87867ae8c951570'),
+    name: 'khozga hasan yousf',
+    userId: 461,
+    createdAt: 2025-06-24T09:43:42.007Z,
+    updatedAt: 2025-06-24T09:43:42.007Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('685a734fc87867ae8c951b82'),
+    name: 'sivar awat kakarash',
+    userId: 1004,
+    createdAt: 2025-06-24T09:43:43.059Z,
+    updatedAt: 2025-06-24T09:43:43.059Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('685a734ec87867ae8c951882'),
+    name: 'shwan bilal sharif',
+    userId: 748,
+    createdAt: 2025-06-24T09:43:42.550Z,
+    updatedAt: 2025-06-24T09:43:42.550Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('685a734dc87867ae8c951459'),
+    name: 'shapol ali mahmood',
+    userId: 151,
+    createdAt: 2025-06-24T09:43:41.635Z,
+    updatedAt: 2025-06-24T09:43:41.635Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('685a734ec87867ae8c9515b5'),
+    name: 'renas  osman muhammad',
+    userId: 509,
+    createdAt: 2025-06-24T09:43:42.076Z,
+    updatedAt: 2025-06-24T09:43:42.076Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('685a734dc87867ae8c9513d5'),
+    name: 'rawezh fatah rashid',
+    userId: 35,
+    createdAt: 2025-06-24T09:43:41.436Z,
+    updatedAt: 2025-06-24T09:43:41.436Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('685a734ec87867ae8c951aad'),
+    name: 'muhammad burhan jalal',
+    userId: 933,
+    createdAt: 2025-06-24T09:43:42.913Z,
+    updatedAt: 2025-06-24T09:43:42.913Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('685a734fc87867ae8c951bac'),
+    name: 'kharman othman muhammad',
+    userId: 3,
+    createdAt: 2025-06-24T09:43:43.105Z,
+    updatedAt: 2025-06-24T09:43:43.105Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('686cfd64a795e489f0a37e52'),
+    name: 'hangwin rafiq ali',
+    userId: 121,
+    createdAt: 2025-07-08T11:13:40.745Z,
+    updatedAt: 2025-07-08T11:13:40.745Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('685a734ec87867ae8c951579'),
+    name: 'chia jamal faiaq',
+    userId: 470,
+    createdAt: 2025-06-24T09:43:42.017Z,
+    updatedAt: 2025-06-24T09:43:42.017Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('685a734ec87867ae8c951afe'),
+    name: 'briar sdiq salih',
+    userId: 960,
+    createdAt: 2025-06-24T09:43:42.967Z,
+    updatedAt: 2025-06-24T09:43:42.967Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('685a734dc87867ae8c951441'),
+    name: 'ahmed anuar ali',
+    userId: 132,
+    createdAt: 2025-06-24T09:43:41.601Z,
+    updatedAt: 2025-06-24T09:43:41.601Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('685a734ec87867ae8c9515be'),
+    name: 'ako rauf ahmad',
+    userId: 512,
+    createdAt: 2025-06-24T09:43:42.082Z,
+    updatedAt: 2025-06-24T09:43:42.082Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('685a734fc87867ae8c951bca'),
+    name: 'amez aziz omar',
+    userId: 26,
+    createdAt: 2025-06-24T09:43:43.137Z,
+    updatedAt: 2025-06-24T09:43:43.137Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('685a734ec87867ae8c951a89'),
+    name: 'aras hamagharib raswl',
+    userId: 921,
+    createdAt: 2025-06-24T09:43:42.890Z,
+    updatedAt: 2025-06-24T09:43:42.890Z,
+    __v: 0
+  },
+  {
+    _id: new ObjectId('685a734ec87867ae8c9515c4'),
+    name: 'bahez osman',
+    userId: 514,
+    createdAt: 2025-06-24T09:43:42.089Z,
+    updatedAt: 2025-06-24T09:43:42.089Z,
+    __v: 0
+  }
+]
