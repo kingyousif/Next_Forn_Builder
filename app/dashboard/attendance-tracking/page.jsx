@@ -1,15 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import React, { useState, useCallback } from "react";
+import { format } from "date-fns";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import axios from "axios";
+
+// UI Components
 import {
   Card,
   CardContent,
@@ -18,31 +15,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  AlertCircle,
-  Clock,
-  RefreshCw,
-  Filter,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  ChevronDown,
-  Check,
-} from "lucide-react";
-import {
-  format,
-  parseISO,
-  differenceInMinutes,
-  subHours,
-  isWithinInterval,
-  parse,
-} from "date-fns";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import EditAttendanceModal from "@/components/attendance/EditAttendanceModal";
+import { Edit } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Select,
   SelectContent,
@@ -50,15 +28,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import axios from "axios";
 import {
   Popover,
   PopoverContent,
@@ -66,929 +35,995 @@ import {
 } from "@/components/ui/popover";
 import {
   Command,
+  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
 } from "@/components/ui/command";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+// Icons
+import {
+  Users,
+  Filter,
+  Check,
+  ChevronDown,
+  X,
+  Printer,
+  FileSpreadsheet,
+  Receipt,
+  Plus,
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsRight,
+  TrendingUp,
+  Clock,
+  RefreshCw,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Custom Components and Hooks
+import {
+  LoadingSpinner,
+  ErrorDisplay,
+  AttendanceStatusIcon,
+  AttendanceStatusBadge,
+  ScheduleTypeBadge,
+  ManualAttendanceModal,
+} from "@/components/attendance/AttendanceComponents";
+import { useAttendanceData } from "@/hooks/useAttendanceData";
+import {
+  exportToExcel,
+  printFilteredData,
+  printInvoice,
+} from "@/utils/attendanceUtils";
+import { useAuth } from "@/components/context/page";
+
+const url = process.env.NEXT_PUBLIC_API_URL;
+
 export default function AttendanceTracking() {
-  // State for attendance data and time management profiles
-  const [attendanceData, setAttendanceData] = useState([]);
-  const [timeProfiles, setTimeProfiles] = useState([]);
-  const [rawAttendanceData, setRawAttendanceData] = useState([]);
-  const [employees, setEmployees] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [open, setOpen] = useState(false);
-  const [searchInput, setSearchInput] = useState("");
-  const url = process.env.NEXT_PUBLIC_API_URL || "";
-
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [recordsPerPage, setRecordsPerPage] = useState(10);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-
-  // Filters
+  // State management
   const [filters, setFilters] = useState({
     employee: "",
     status: "",
     fromDate: "",
     toDate: "",
-    attendance: "", // on-time, late, early, absent
+    attendance: "",
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
+  const [open, setOpen] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
+  const [editRecord, setEditRecord] = useState(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false); // Add refresh loading state
+  const { token, role, user } = useAuth();
+
+  // Custom hook for data management
+  const {
+    rawData,
+    isLoading,
+    error,
+    processedAttendanceData,
+    filteredData,
+    paginatedData,
+    totalPages,
+    totalHours,
+    filteredEmployees,
+    paginationItems,
+    activeEmployeeName,
+    fetchAllData,
+  } = useAttendanceData({
+    filters,
+    currentPage,
+    recordsPerPage,
+    searchInput,
   });
 
-  // Fetch data on component mount
-  useEffect(() => {
-    const loadInitialData = async () => {
-      try {
-        setIsLoading(true);
-        const [profilesData, employeesData] = await Promise.all([
-          fetchTimeProfiles(),
-          fetchEmployees(),
-        ]);
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      // Sync attendance data from ZKTeco device
+      const syncResponse = await axios.post(
+        "http://172.18.1.31:5000/api/zkteco/sync-attendance"
+      );
 
-        // Set the first employee as the default filter if available
-        if (employeesData && employeesData.length > 0) {
-          setFilters((prev) => ({
-            ...prev,
-            employee: employeesData[0]._id || employeesData[0].userId,
-          }));
-        }
+      // Refresh the local data after sync
+      await fetchAllData();
 
-        await fetchAttendanceData();
-      } catch (err) {
-        console.error("Error loading initial data:", err);
-        setError("Failed to load data. Please try again.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      toast({
+        title: "Success",
+        description: "Attendance data synced and refreshed successfully",
+      });
+    } catch (error) {
+      console.error("Error during manual refresh:", error);
+      toast({
+        title: "Error",
+        description: "Failed to sync attendance data. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
-    loadInitialData();
+  // Manual attendance submission
+  const handleManualAttendanceSubmit = async (attendanceData) => {
+    try {
+      const dataArray = [attendanceData];
+      await axios.post(`${url}attendance/create`, dataArray);
+
+      // Refresh data after successful submission
+      await fetchAllData();
+
+      toast({
+        title: "Success",
+        description: "Manual attendance record created successfully",
+      });
+    } catch (error) {
+      console.error("Error creating manual attendance:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create attendance record",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  // Optimized filter handlers
+  const handleFilterChange = useCallback((key, value) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setCurrentPage(1);
   }, []);
 
-  // Effect to process data when filters change
-  useEffect(() => {
-    if (rawAttendanceData.length > 0) {
-      processAttendanceData();
-    }
-  }, [filters, currentPage, recordsPerPage]);
-
-  // API calls
-  const fetchTimeProfiles = async () => {
-    try {
-      const response = await axios.post(`${url}timeManagement/fetch`);
-      setTimeProfiles(response.data);
-      return response.data;
-    } catch (err) {
-      console.error("Error fetching time profiles:", err);
-      throw err;
-    }
-  };
-
-  const fetchEmployees = async () => {
-    try {
-      const response = await axios.get(`${url}attendanceUser/fetch`);
-      setEmployees(response.data);
-      return response.data;
-    } catch (err) {
-      console.error("Error fetching employees:", err);
-      throw err;
-    }
-  };
-
-  const fetchAttendanceData = async () => {
-    try {
-      setIsLoading(true);
-      const response = await axios.get(`${url}attendance/fetch`);
-
-      // Sort data by timestamp in descending order (newest first)
-      const sortedData = [...response.data].sort(
-        (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
-      );
-
-      // Modify timestamps to adjust for timezone offset
-      const modifiedData = sortedData.map((record) => {
-        const modifiedTimestamp = subHours(new Date(record.timestamp), 3);
-        return { ...record, timestamp: modifiedTimestamp };
-      });
-
-      setRawAttendanceData(modifiedData);
-      processAttendanceData(modifiedData);
-      return modifiedData;
-    } catch (err) {
-      console.error("Error fetching attendance data:", err);
-      setError("Failed to fetch attendance data");
-      setIsLoading(false);
-      throw err;
-    }
-  };
-
-  // Process attendance data with filters and time profiles
-  const processAttendanceData = (data = rawAttendanceData) => {
-    try {
-      // Apply filters
-      let filteredData = [...data];
-
-      // Filter by employee
-      if (filters.employee && filters.employee !== "All") {
-        filteredData = filteredData.filter((record) => {
-          const employee = employees.find(
-            (emp) => emp.name === record.user_name
-          );
-          return (
-            employee &&
-            (employee._id === filters.employee ||
-              employee.userId === filters.employee)
-          );
-        });
-      }
-
-      // Filter by status
-      if (filters.status && filters.status !== "All") {
-        filteredData = filteredData.filter(
-          (record) => record.status === filters.status
-        );
-      }
-
-      // Filter by date range if both from and to dates are provided
-      if (filters.fromDate && filters.toDate) {
-        const fromDate = new Date(filters.fromDate);
-        fromDate.setHours(0, 0, 0, 0);
-
-        const toDate = new Date(filters.toDate);
-        toDate.setHours(23, 59, 59, 999);
-
-        filteredData = filteredData.filter((record) => {
-          const recordDate = new Date(record.timestamp);
-          return recordDate >= fromDate && recordDate <= toDate;
-        });
-      }
-      // Filter by from date only
-      else if (filters.fromDate) {
-        const fromDate = new Date(filters.fromDate);
-        fromDate.setHours(0, 0, 0, 0);
-
-        filteredData = filteredData.filter((record) => {
-          const recordDate = new Date(record.timestamp);
-          return recordDate >= fromDate;
-        });
-      }
-      // Filter by to date only
-      else if (filters.toDate) {
-        const toDate = new Date(filters.toDate);
-        toDate.setHours(23, 59, 59, 999);
-
-        filteredData = filteredData.filter((record) => {
-          const recordDate = new Date(record.timestamp);
-          return recordDate <= toDate;
-        });
-      }
-
-      // Process attendance status before applying attendance filter
-      filteredData = filteredData.map((record) => {
-        // Find employee by name
-        const employee = employees.find((emp) => emp.name === record.user_name);
-
-        // Find the time profile for this user based on userId
-        const profile = employee
-          ? findTimeProfileForUser(employee.userId || employee._id)
-          : null;
-
-        let attendanceStatus = "unknown";
-        let statusMessage = "";
-
-        if (profile) {
-          // Parse profile start and end times
-          const [startHour, startMinute] = profile.startTime
-            .split(":")
-            .map(Number);
-          const [endHour, endMinute] = profile.endTime.split(":").map(Number);
-
-          // Create date objects for comparison
-          const recordDate = new Date(record.timestamp);
-          const recordDay = new Date(record.timestamp);
-          recordDay.setHours(0, 0, 0, 0);
-          recordDay.setHours(recordDay.getHours() + 6); // Convert UTC to Baghdad time
-
-          const profileStartTime = new Date(recordDay);
-          profileStartTime.setHours(startHour, startMinute, 0);
-
-          const profileEndTime = new Date(recordDay);
-          profileEndTime.setHours(endHour, endMinute, 0);
-
-          // Check if check-in is late or early
-          if (record.status === "Check-in") {
-            const minutesDifference = differenceInMinutes(
-              recordDate,
-              profileStartTime
-            );
-
-            if (minutesDifference <= 0) {
-              // Early or on time
-              if (Math.abs(minutesDifference) > profile.graceMinutesEarly) {
-                attendanceStatus = "early";
-                statusMessage = `${Math.abs(minutesDifference)} min early`;
-              } else {
-                attendanceStatus = "on-time";
-                statusMessage = "On time";
-              }
-            } else {
-              // Late
-              if (minutesDifference > profile.graceMinutesLate) {
-                attendanceStatus = "late";
-                statusMessage = `${minutesDifference} min late`;
-              } else {
-                attendanceStatus = "on-time";
-                statusMessage = "Within grace period";
-              }
-            }
-          }
-
-          // Check if check-out is early or late
-          if (record.status === "Check-out") {
-            const minutesDifference = differenceInMinutes(
-              recordDate,
-              profileEndTime
-            );
-
-            if (minutesDifference >= 0) {
-              // Late check-out or on time
-              attendanceStatus = "on-time";
-              statusMessage =
-                minutesDifference > 0
-                  ? `${minutesDifference} min overtime`
-                  : "On time";
-            } else {
-              // Early check-out
-              if (Math.abs(minutesDifference) > profile.graceMinutesEarly) {
-                attendanceStatus = "early";
-                statusMessage = `${Math.abs(minutesDifference)} min early`;
-              } else {
-                attendanceStatus = "on-time";
-                statusMessage = "Within grace period";
-              }
-            }
-          }
-        } else {
-          // No profile assigned
-          attendanceStatus = "unassigned";
-          statusMessage = "No time profile";
-        }
-
-        return {
-          ...record,
-          attendanceStatus,
-          statusMessage,
-          profile: profile || {
-            name: "Unassigned",
-            workHoursPerDay: "-",
-            workDaysPerWeek: "-",
-            startTime: "-",
-            endTime: "-",
-            graceMinutesLate: "-",
-            graceMinutesEarly: "-",
-          },
-        };
-      });
-
-      // Apply attendance status filter after processing
-      if (filters.attendance && filters.attendance !== "All") {
-        filteredData = filteredData.filter(
-          (record) => record.attendanceStatus === filters.attendance
-        );
-      }
-
-      // Set total records count for pagination
-      setTotalRecords(filteredData.length);
-      setTotalPages(Math.ceil(filteredData.length / recordsPerPage));
-
-      // Apply pagination to the filtered data
-      const startIndex = (currentPage - 1) * recordsPerPage;
-      const paginatedData = filteredData.slice(
-        startIndex,
-        startIndex + recordsPerPage
-      );
-
-      setAttendanceData(paginatedData);
-      setIsLoading(false);
-    } catch (err) {
-      console.error("Error processing attendance data:", err);
-      setError("Failed to process attendance data");
-      setIsLoading(false);
-    }
-  };
-
-  // Helper to find the time profile for a user - memoized to improve performance
-  const findTimeProfileForUser = useMemo(() => {
-    // Create a mapping of userId to profile for faster lookups
-    const profileMap = {};
-
-    return (userId) => {
-      if (!userId) return null;
-
-      // Check if we've already cached this lookup
-      if (profileMap[userId]) return profileMap[userId];
-
-      // Find the profile for this user
-      for (const profile of timeProfiles) {
-        // Check if userId is in the userId array (convert to string for comparison)
-        const userIdStr = String(userId);
-        if (profile.userId && profile.userId.includes(userIdStr)) {
-          // Cache the result
-          profileMap[userId] = profile;
-          return profile;
-        }
-      }
-
-      // Cache the negative result
-      profileMap[userId] = null;
-      return null;
-    };
-  }, [timeProfiles]);
-
-  // Reset filters
-  const handleResetFilters = () => {
-    // Only reset non-employee filters to keep showing the same employee
-    setFilters((prev) => ({
-      ...prev,
+  const handleResetFilters = useCallback(() => {
+    setFilters({
+      employee: "",
       status: "",
       fromDate: "",
       toDate: "",
       attendance: "",
-    }));
+    });
     setCurrentPage(1);
+    setSearchInput("");
+  }, []);
+
+  const handlePageChange = useCallback(
+    (newPage) => {
+      if (newPage >= 1 && newPage <= totalPages) {
+        setCurrentPage(newPage);
+      }
+    },
+    [totalPages]
+  );
+
+  const handleEditAttendance = (record) => {
+    setEditRecord(record);
+    setIsEditModalOpen(true);
   };
 
-  // Get the status badge variant based on attendance status
-  const getAttendanceStatusBadge = (status) => {
-    switch (status) {
-      case "on-time":
-        return (
-          <Badge variant="success" className="bg-green-500">
-            On Time
-          </Badge>
-        );
-      case "late":
-        return <Badge variant="destructive">Late</Badge>;
-      case "early":
-        return (
-          <Badge variant="warning" className="bg-yellow-500">
-            Early
-          </Badge>
-        );
-      case "unassigned":
-        return <Badge variant="outline">Unassigned</Badge>;
-      default:
-        return <Badge variant="outline">Unknown</Badge>;
-    }
+  // Add this function to handle successful edit
+  const handleEditSuccess = async () => {
+    await fetchAllData(); // Refresh the data
+    setEditRecord(null);
+    setIsEditModalOpen(false);
   };
 
-  // Get the status icon based on attendance status
-  const getAttendanceStatusIcon = (status) => {
-    switch (status) {
-      case "on-time":
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case "late":
-        return <XCircle className="h-4 w-4 text-red-500" />;
-      case "early":
-        return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
-      case "unassigned":
-        return <AlertCircle className="h-4 w-4 text-gray-500" />;
-      default:
-        return <AlertCircle className="h-4 w-4 text-gray-500" />;
-    }
-  };
-
-  // Pagination controls
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage);
-    }
-  };
-
-  // Memoized filtered list: only 10 shown unless search input matches
-  const filteredEmployees = useMemo(() => {
-    if (!searchInput) return employees.slice(0, 10); // Limit to 10 if no search
-    return employees.filter((emp) =>
-      emp.name.toLowerCase().includes(searchInput.toLowerCase())
-    );
-  }, [searchInput, employees]);
-
-  // Generate pagination items
-  const getPaginationItems = () => {
-    const items = [];
-    const maxPagesToShow = 5; // Show max 5 page numbers at once
-
-    // Calculate range of pages to show
-    let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
-    let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
-
-    // Adjust if we're near the end
-    if (endPage - startPage + 1 < maxPagesToShow) {
-      startPage = Math.max(1, endPage - maxPagesToShow + 1);
-    }
-
-    // Add page numbers
-    for (let i = startPage; i <= endPage; i++) {
-      items.push(
-        <Button
-          key={i}
-          variant={currentPage === i ? "default" : "outline"}
-          size="sm"
-          onClick={() => handlePageChange(i)}
-          className="h-8 w-8 p-0"
-        >
-          {i}
-        </Button>
-      );
-    }
-
-    return items;
-  };
-
-  // Active employee name for display
-  const activeEmployeeName = useMemo(() => {
-    if (filters.employee) {
-      const employee = employees.find(
-        (emp) => emp._id === filters.employee || emp.userId === filters.employee
-      );
-      return employee ? employee.name : "All Employees";
-    }
-    return "All Employees";
-  }, [filters.employee, employees]);
+  if (isLoading) return <LoadingSpinner />;
+  if (error) return <ErrorDisplay error={error} onRetry={fetchAllData} />;
 
   return (
-    <div className="container mx-auto p-6">
-      <Card className="mb-8">
-        <CardHeader>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-            <div>
-              <CardTitle className="text-2xl font-bold">
-                Employee Attendance Tracking
-              </CardTitle>
-              <CardDescription className="mt-1">
-                Monitor employee check-ins, check-outs, and compliance with time
-                schedules
-              </CardDescription>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 transition-colors duration-500">
+      <div className="container mx-auto p-6 space-y-8">
+        <Card className="shadow-2xl border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl transition-all duration-500 hover:shadow-3xl">
+          <CardHeader className="pb-6 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 dark:from-blue-500 dark:via-purple-500 dark:to-indigo-500 text-white rounded-t-xl">
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <CardTitle className="text-3xl font-bold flex items-center gap-4">
+                  <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                    <Users className="h-8 w-8" />
+                  </div>
+                  Employee Attendance Tracking
+                </CardTitle>
+                <CardDescription className="mt-3 text-blue-100 text-lg">
+                  Monitor employee check-ins, check-outs, and work schedules
+                  with advanced analytics
+                </CardDescription>
+              </div>
+              {filters.employee && filters.employee !== "All" && (
+                <Badge className="bg-white/20 text-white border-white/30 px-4 py-2 text-sm font-medium backdrop-blur-sm">
+                  👤 {activeEmployeeName}
+                </Badge>
+              )}
             </div>
-            <div className="mt-2 md:mt-0">
-              <Badge
-                variant="outline"
-                className="text-sm px-3 py-1 font-medium"
-              >
-                Viewing: {activeEmployeeName}
-              </Badge>
+
+            {/* Enhanced Total Hours Display with Late, Early, and Extra Time */}
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold">
+                  {totalHours.hours}h {totalHours.minutes}m
+                </div>
+                <div className="text-sm opacity-90">Total Work Hours</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold">
+                  {totalHours.recordCount}
+                </div>
+                <div className="text-sm opacity-90">Check-in Records</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold">{filteredData.length}</div>
+                <div className="text-sm opacity-90">Total Records</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold">
+                  {Math.round(
+                    totalHours.totalMinutes / totalHours.recordCount
+                  ) || 0}
+                  m
+                </div>
+                <div className="text-sm opacity-90">Avg per Check-in</div>
+              </div>
+              {/* New Late Time Statistics */}
+              <div className="bg-red-500/20 backdrop-blur-sm rounded-lg p-4 text-center border border-red-300/30">
+                <div className="text-2xl font-bold text-red-100">
+                  {totalHours.lateTime?.hours || 0}h{" "}
+                  {totalHours.lateTime?.minutes || 0}m
+                </div>
+                <div className="text-sm opacity-90">Total Late Time</div>
+                <div className="text-xs opacity-75">
+                  ({totalHours.lateTime?.count || 0} instances)
+                </div>
+              </div>
+              {/* New Early Time Statistics */}
+              <div className="bg-yellow-500/20 backdrop-blur-sm rounded-lg p-4 text-center border border-yellow-300/30">
+                <div className="text-2xl font-bold text-yellow-100">
+                  {totalHours.earlyTime?.hours || 0}h{" "}
+                  {totalHours.earlyTime?.minutes || 0}m
+                </div>
+                <div className="text-sm opacity-90">Total Early Time</div>
+                <div className="text-xs opacity-75">
+                  ({totalHours.earlyTime?.count || 0} instances)
+                </div>
+              </div>
+              {/* New Extra Time Statistics */}
+              <div className="bg-green-500/20 backdrop-blur-sm rounded-lg p-4 text-center border border-green-300/30">
+                <div className="text-2xl font-bold text-green-100">
+                  {totalHours.extraTime?.hours || 0}h{" "}
+                  {totalHours.extraTime?.minutes || 0}m
+                </div>
+                <div className="text-sm opacity-90">Total Extra Time</div>
+                <div className="text-xs opacity-75">
+                  ({totalHours.extraTime?.count || 0} instances)
+                </div>
+              </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* Filters */}
-          <div className="mb-6 border rounded-md p-4">
-            <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-              <Filter size={18} />
-              Filter Attendance Records
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <Label htmlFor="employee-filter" className="mb-2 block">
-                  Employee
+          </CardHeader>
+
+          <CardContent className="p-8">
+            {/* Action Buttons */}
+            {((role === "admin" && user.department === "HR") ||
+              role === "super admin") && (
+              <div className="flex flex-wrap gap-4 mb-6">
+                <Button
+                  onClick={() =>
+                    printFilteredData(filteredData, totalHours, filters)
+                  }
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print Report
+                </Button>
+
+                <Button
+                  onClick={() =>
+                    exportToExcel(filteredData, "attendance-report")
+                  }
+                  className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Export Excel
+                </Button>
+
+                <Button
+                  onClick={() =>
+                    printInvoice(
+                      activeEmployeeName,
+                      filteredData[0]?.profile?.name || "Unassigned",
+                      filters.fromDate,
+                      filters.toDate,
+                      totalHours
+                    )
+                  }
+                  disabled={!filters.employee || filters.employee === "All"}
+                  className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Receipt className="h-4 w-4 mr-2" />
+                  Print Invoice
+                </Button>
+
+                <Button
+                  onClick={() => setIsManualEntryOpen(true)}
+                  className="bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Manual Entry
+                </Button>
+
+                {/* Add Manual Refresh Button */}
+                <Button
+                  onClick={handleManualRefresh}
+                  disabled={isRefreshing}
+                  className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isRefreshing ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Sync & Refresh
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {/* Enhanced Filter Section with Modern Design */}
+            <div className="mb-8 p-8 bg-gradient-to-r from-gray-50 via-blue-50 to-indigo-50 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 rounded-2xl border border-gray-200 dark:border-slate-600 shadow-xl backdrop-blur-sm">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-xl shadow-lg">
+                  <Filter className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <Label className="text-xl font-bold text-gray-800 dark:text-gray-100">
+                  Filter Attendance Records
                 </Label>
+              </div>
 
-                <Popover open={open} onOpenChange={setOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className="w-full justify-between"
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
+                {/* Employee Filter */}
+                <div className="space-y-4">
+                  <Label
+                    htmlFor="employee-filter"
+                    className="text-sm font-bold text-gray-700 dark:text-gray-200 uppercase tracking-wide"
+                  >
+                    Employee
+                  </Label>
+                  <Popover open={open} onOpenChange={setOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={open}
+                        className="w-full justify-between text-left font-medium h-12 border-2 border-gray-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl rounded-xl"
+                      >
+                        <span className="truncate text-gray-700 dark:text-gray-200">
+                          {activeEmployeeName}
+                        </span>
+                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-full p-0 border-2 border-gray-200 dark:border-slate-600 shadow-2xl rounded-xl"
+                      align="start"
                     >
-                      {filters.employee
-                        ? employees.find(
-                            (emp) =>
-                              emp._id === filters.employee ||
-                              emp.userId === filters.employee
-                          )?.name
-                        : "Select employee"}
-                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-
-                  <PopoverContent className="w-[300px] p-0">
-                    <Command>
-                      <CommandInput
-                        placeholder="Search employees..."
-                        value={searchInput}
-                        onValueChange={setSearchInput}
-                      />
-                      <CommandGroup>
-                        {filteredEmployees.map((employee) => (
+                      <Command className="bg-white dark:bg-slate-800">
+                        <CommandInput
+                          placeholder="Search employees..."
+                          value={searchInput}
+                          onValueChange={setSearchInput}
+                          className="border-0 focus:ring-0 text-gray-700 dark:text-gray-200"
+                        />
+                        <CommandGroup className="max-h-64 overflow-y-auto">
                           <CommandItem
-                            key={employee._id || employee.userId}
-                            value={employee.name}
+                            value="all"
                             onSelect={() => {
-                              setFilters({
-                                ...filters,
-                                employee: employee._id || employee.userId,
-                              });
-                              setCurrentPage(1);
+                              handleFilterChange("employee", "");
                               setOpen(false);
-                              setSearchInput(""); // Clear search on select
                             }}
+                            className="cursor-pointer hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors duration-200"
                           >
                             <Check
                               className={cn(
                                 "mr-2 h-4 w-4",
-                                filters.employee ===
-                                  (employee._id || employee.userId)
-                                  ? "opacity-100"
-                                  : "opacity-0"
+                                !filters.employee ? "opacity-100" : "opacity-0"
                               )}
                             />
-                            {employee.name}
+                            <span className="font-medium text-gray-700 dark:text-gray-200">
+                              All Employees
+                            </span>
                           </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              {/* <div>
-                <Label htmlFor="status-filter" className="mb-2 block">
-                  Status
-                </Label>
-                <Select
-                  value={filters.status}
-                  onValueChange={(value) => {
-                    setFilters({ ...filters, status: value });
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger id="status-filter">
-                    <SelectValue placeholder="All statuses" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="All">All statuses</SelectItem>
-                    <SelectItem value="Check-in">Check-in</SelectItem>
-                    <SelectItem value="Check-out">Check-out</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div> */}
-              <div>
-                <Label htmlFor="attendance-filter" className="mb-2 block">
-                  Attendance
-                </Label>
-                <Select
-                  value={filters.attendance}
-                  onValueChange={(value) => {
-                    setFilters({ ...filters, attendance: value });
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger id="attendance-filter">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="All">All</SelectItem>
-                    <SelectItem value="on-time">On Time</SelectItem>
-                    <SelectItem value="late">Late</SelectItem>
-                    <SelectItem value="early">Early</SelectItem>
-                    <SelectItem value="unassigned">Unassigned</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex gap-4">
-                <div>
-                  <Label htmlFor="from-date" className="mb-2 block">
-                    From
-                  </Label>
-                  <Input
-                    id="from-date"
-                    type="date"
-                    value={filters.fromDate}
-                    onChange={(e) => {
-                      setFilters({ ...filters, fromDate: e.target.value });
-                      setCurrentPage(1);
-                    }}
-                  />
+                          {filteredEmployees.map((employee) => (
+                            <CommandItem
+                              key={employee._id}
+                              value={employee.name}
+                              onSelect={() => {
+                                handleFilterChange("employee", employee._id);
+                                setOpen(false);
+                              }}
+                              className="cursor-pointer hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors duration-200"
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  filters.employee === employee._id
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              <div className="flex items-center space-x-3">
+                                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-xs">
+                                  {employee.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <span className="font-medium text-gray-700 dark:text-gray-200">
+                                    {employee.name}
+                                  </span>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    ID: {employee.userId}
+                                  </p>
+                                </div>
+                              </div>
+                            </CommandItem>
+                          ))}
+                          {filteredEmployees.length === 0 && (
+                            <CommandEmpty className="py-6 text-center text-gray-500 dark:text-gray-400">
+                              No employees found.
+                            </CommandEmpty>
+                          )}
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
-                <div>
-                  <Label htmlFor="to-date" className="mb-2 block">
-                    To
+                {/* Status Filter */}
+                <div className="space-y-4">
+                  <Label className="text-sm font-bold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
+                    Status
                   </Label>
-                  <Input
-                    id="to-date"
-                    type="date"
-                    value={filters.toDate}
-                    onChange={(e) => {
-                      setFilters({ ...filters, toDate: e.target.value });
-                      setCurrentPage(1);
-                    }}
-                  />
+                  <Select
+                    value={filters.status}
+                    onValueChange={(value) =>
+                      handleFilterChange("status", value)
+                    }
+                  >
+                    <SelectTrigger className="h-12 border-2 border-gray-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl rounded-xl">
+                      <SelectValue placeholder="All Status" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white dark:bg-slate-800 border-2 border-gray-200 dark:border-slate-600 shadow-2xl rounded-xl">
+                      <SelectItem value="All">All Status</SelectItem>
+                      <SelectItem value="Check-in">Check-in</SelectItem>
+                      <SelectItem value="Check-out">Check-out</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* From Date Filter */}
+                <div className="space-y-4">
+                  <Label className="text-sm font-bold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
+                    From Date
+                  </Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "h-12 w-full justify-start text-left font-normal border-2 border-gray-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl rounded-xl",
+                          !filters.fromDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {filters.fromDate ? (
+                          format(new Date(filters.fromDate), "yyyy-MM-dd")
+                        ) : (
+                          <span>Pick a date</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-auto p-0 bg-white dark:bg-slate-800 border-2 border-gray-200 dark:border-slate-600 shadow-2xl rounded-xl"
+                      align="start"
+                    >
+                      <Calendar
+                        mode="single"
+                        selected={
+                          filters.fromDate
+                            ? new Date(filters.fromDate)
+                            : undefined
+                        }
+                        onSelect={(date) => {
+                          handleFilterChange(
+                            "fromDate",
+                            date ? format(date, "yyyy-MM-dd") : ""
+                          );
+                        }}
+                        disabled={(date) =>
+                          date > new Date() || date < new Date("1900-01-01")
+                        }
+                        initialFocus
+                        className="rounded-xl"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* To Date Filter */}
+                <div className="space-y-4">
+                  <Label className="text-sm font-bold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
+                    To Date
+                  </Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "h-12 w-full justify-start text-left font-normal border-2 border-gray-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl rounded-xl",
+                          !filters.toDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {filters.toDate ? (
+                          format(new Date(filters.toDate), "yyyy-MM-dd")
+                        ) : (
+                          <span>Pick a date</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-auto p-0 bg-white dark:bg-slate-800 border-2 border-gray-200 dark:border-slate-600 shadow-2xl rounded-xl"
+                      align="start"
+                    >
+                      <Calendar
+                        mode="single"
+                        selected={
+                          filters.toDate ? new Date(filters.toDate) : undefined
+                        }
+                        onSelect={(date) => {
+                          handleFilterChange(
+                            "toDate",
+                            date ? format(date, "yyyy-MM-dd") : ""
+                          );
+                        }}
+                        disabled={(date) =>
+                          date > new Date() || date < new Date("1900-01-01")
+                        }
+                        initialFocus
+                        className="rounded-xl"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Performance Status Filter */}
+                <div className="space-y-4">
+                  <Label className="text-sm font-bold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
+                    Performance
+                  </Label>
+                  <Select
+                    value={filters.attendance}
+                    onValueChange={(value) =>
+                      handleFilterChange("attendance", value)
+                    }
+                  >
+                    <SelectTrigger className="h-12 border-2 border-gray-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl rounded-xl">
+                      <SelectValue placeholder="All Performance" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white dark:bg-slate-800 border-2 border-gray-200 dark:border-slate-600 shadow-2xl rounded-xl">
+                      <SelectItem value="All">All Performance</SelectItem>
+                      <SelectItem value="on-time">On Time</SelectItem>
+                      <SelectItem value="late">Late</SelectItem>
+                      <SelectItem value="early">Early</SelectItem>
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-            </div>
-            <div className="mt-4 flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleResetFilters}
-                className="mr-2"
-              >
-                Reset Filters
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => {
-                  fetchAttendanceData();
-                  setCurrentPage(1);
-                }}
-              >
-                Refresh Data
-              </Button>
-            </div>
-          </div>
 
-          {/* Attendance Data Table */}
-          {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="text-center">
-                <div className="w-8 h-8 border-4 border-t-blue-500 border-r-transparent border-b-blue-500 border-l-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p>Loading attendance data...</p>
-              </div>
-            </div>
-          ) : error ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="text-center text-red-500 flex flex-col items-center">
-                <AlertCircle size={32} className="mb-2" />
-                <p>{error}</p>
+              {/* Reset Filters Button */}
+              <div className="mt-8 flex justify-end">
                 <Button
                   variant="outline"
-                  className="mt-4"
-                  onClick={() => {
-                    setError(null);
-                    fetchAttendanceData();
-                  }}
+                  onClick={handleResetFilters}
+                  className="border-2 border-red-200 dark:border-red-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all duration-300 shadow-lg hover:shadow-xl rounded-xl font-semibold"
                 >
-                  Try Again
+                  <X className="h-4 w-4 mr-2" />
+                  Reset Filters
                 </Button>
               </div>
             </div>
-          ) : (
-            <>
-              <Table>
-                <TableCaption>
-                  Employee attendance records for {activeEmployeeName}
-                </TableCaption>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Employee</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Attendance</TableHead>
-                    <TableHead>Time Profile</TableHead>
-                    <TableHead>Details</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {attendanceData.length > 0 ? (
-                    attendanceData.map((record) => (
-                      <TableRow key={record._id}>
-                        <TableCell className="font-medium">
-                          {record.user_name}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              record.status === "Check-in"
-                                ? "default"
-                                : record.status === "Check-out"
-                                ? "destructive"
-                                : "secondary"
-                            }
-                          >
-                            {record.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {format(
-                            new Date(record.timestamp),
-                            "yyyy-MM-dd HH:mm:ss"
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {getAttendanceStatusIcon(record.attendanceStatus)}
-                            {getAttendanceStatusBadge(record.attendanceStatus)}
+
+            {/* Enhanced Table Section with Duration and Schedule Info */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-600 overflow-hidden">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gradient-to-r from-gray-50 to-blue-50 dark:from-slate-700 dark:to-slate-600 border-b-2 border-gray-200 dark:border-slate-500">
+                      <TableHead className="font-bold text-gray-700 dark:text-gray-200 py-6 px-6 text-left">
+                        Employee
+                      </TableHead>
+                      <TableHead className="font-bold text-gray-700 dark:text-gray-200 py-6 px-6 text-center">
+                        Time & Date
+                      </TableHead>
+                      <TableHead className="font-bold text-gray-700 dark:text-gray-200 py-6 px-6 text-center">
+                        Attendance
+                      </TableHead>
+                      <TableHead className="font-bold text-gray-700 dark:text-gray-200 py-6 px-6 text-center">
+                        Schedule Profile
+                      </TableHead>
+                      <TableHead className="font-bold text-gray-700 dark:text-gray-200 py-6 px-6 text-center">
+                        Work Duration
+                      </TableHead>
+                      <TableHead className="font-bold text-gray-700 dark:text-gray-200 py-6 px-6 text-center">
+                        Status
+                      </TableHead>
+                      {role === "super admin" && (
+                        <TableHead className="font-bold text-gray-700 dark:text-gray-200 py-6 px-6 text-center">
+                          Actions
+                        </TableHead>
+                      )}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedData.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={6}
+                          className="text-center py-16 text-gray-500 dark:text-gray-400"
+                        >
+                          <div className="flex flex-col items-center space-y-4">
+                            <Users className="h-16 w-16 text-gray-300 dark:text-gray-600" />
+                            <div className="space-y-2">
+                              <p className="text-xl font-semibold">
+                                No attendance records found
+                              </p>
+                              <p className="text-sm">
+                                Try adjusting your filters or refresh the data
+                              </p>
+                            </div>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="cursor-help underline decoration-dotted">
-                                  {record.profile.name}
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <div className="text-xs">
-                                  <p>
-                                    Hours: {record.profile.workHoursPerDay}h /{" "}
-                                    {record.profile.workDaysPerWeek} days
-                                  </p>
-                                  <p>
-                                    Time: {record.profile.startTime} -{" "}
-                                    {record.profile.endTime}
-                                  </p>
-                                  <p>
-                                    Grace: {record.profile.graceMinutesLate}min
-                                    late / {record.profile.graceMinutesEarly}min
-                                    early
-                                  </p>
-                                </div>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm text-gray-600">
-                            {record.statusMessage}
-                          </span>
-                        </TableCell>
                       </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">
-                        No attendance records found. Try adjusting your filters.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                    ) : (
+                      paginatedData.map((record, index) => (
+                        <TableRow
+                          key={`${record._id}-${index}`}
+                          className="hover:bg-blue-50 dark:hover:bg-slate-700 transition-all duration-300 border-b border-gray-100 dark:border-slate-600"
+                        >
+                          <TableCell className="py-6 px-6">
+                            <div className="flex items-center space-x-4">
+                              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg">
+                                {record.employee?.name
+                                  ?.charAt(0)
+                                  ?.toUpperCase() || "?"}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-gray-900 dark:text-gray-100">
+                                  {record.employee?.name ||
+                                    record.user_name ||
+                                    "Unknown"}
+                                </p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                  ID: {record.employee?.userId || "N/A"}
+                                </p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-6 px-6 text-center">
+                            <div className="space-y-1">
+                              <p className="font-semibold text-gray-900 dark:text-gray-100">
+                                {format(new Date(record.timestamp), "HH:mm:ss")}
+                              </p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                {format(
+                                  new Date(record.timestamp),
+                                  "yyyy-MM-dd"
+                                )}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-6 px-6 text-center">
+                            <div className="flex items-center justify-center space-x-3">
+                              <AttendanceStatusIcon
+                                status={record.attendanceStatus}
+                              />
+                              <Badge
+                                variant={
+                                  record.status === "Check-in"
+                                    ? "default"
+                                    : "secondary"
+                                }
+                                className={`font-semibold px-3 py-1 rounded-full shadow-lg ${
+                                  record.status === "Check-in"
+                                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                                    : "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300"
+                                }`}
+                              >
+                                {record.status}
+                              </Badge>
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-6 px-6 text-center">
+                            {record.profile ? (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-center gap-2">
+                                  <p className="font-semibold text-gray-900 dark:text-gray-100">
+                                    {record.profile.name}
+                                  </p>
+                                  <ScheduleTypeBadge
+                                    scheduleType={record.profile.scheduleType}
+                                  />
+                                </div>
+                                {record.effectiveSchedule &&
+                                  record.effectiveSchedule.type !==
+                                    "on-call" && (
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                      {record.effectiveSchedule.startTime} -{" "}
+                                      {record.effectiveSchedule.endTime}
+                                    </p>
+                                  )}
+                                {record.profile.scheduleType === "flexible" && (
+                                  <p className="text-xs text-blue-600 dark:text-blue-400">
+                                    Flexible Schedule
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600"
+                              >
+                                Unassigned
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="py-6 px-6 text-center">
+                            {record.workDuration ? (
+                              <div className="space-y-1">
+                                <p className="font-semibold text-gray-900 dark:text-gray-100">
+                                  {record.workDuration.hours}h{" "}
+                                  {record.workDuration.minutes}m
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  Total: {record.workDuration.totalMinutes} min
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center">
+                                <Badge
+                                  variant="outline"
+                                  className="text-gray-500 dark:text-gray-400"
+                                >
+                                  {record.status === "Check-in"
+                                    ? "In Progress"
+                                    : "N/A"}
+                                </Badge>
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="py-6 px-6 text-center">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center justify-center">
+                                    <AttendanceStatusBadge
+                                      status={record.attendanceStatus}
+                                    />
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-0 shadow-2xl rounded-xl p-4">
+                                  <div className="space-y-2">
+                                    <p className="font-semibold">
+                                      {record.statusMessage}
+                                    </p>
+                                    <p className="text-sm opacity-90">
+                                      Status: {record.attendanceStatus}
+                                    </p>
+                                    {record.profile && (
+                                      <>
+                                        <p className="text-sm opacity-90">
+                                          Profile: {record.profile.name}
+                                        </p>
+                                        <p className="text-sm opacity-90">
+                                          Type: {record.profile.scheduleType}
+                                        </p>
+                                        {record.effectiveSchedule &&
+                                          record.effectiveSchedule.type !==
+                                            "on-call" && (
+                                            <p className="text-sm opacity-90">
+                                              Schedule:{" "}
+                                              {
+                                                record.effectiveSchedule
+                                                  .startTime
+                                              }{" "}
+                                              -{" "}
+                                              {record.effectiveSchedule.endTime}
+                                            </p>
+                                          )}
+                                      </>
+                                    )}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </TableCell>
+                          {role === "super admin" && (
+                            <TableCell className="py-6 px-6 text-center">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditAttendance(record)}
+                                className="border-2 border-blue-200 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all duration-300 shadow-lg hover:shadow-xl rounded-lg font-semibold"
+                              >
+                                <Edit className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
 
-              {/* Pagination Controls */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between space-x-2 py-4">
-                  <div className="flex-1 text-sm text-gray-500">
-                    Showing {(currentPage - 1) * recordsPerPage + 1} to{" "}
-                    {Math.min(currentPage * recordsPerPage, totalRecords)} of{" "}
-                    {totalRecords} records
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePageChange(1)}
-                        disabled={currentPage === 1}
-                        className="hidden sm:flex h-8 w-8 p-0"
-                      >
-                        <span className="sr-only">Go to first page</span>
-                        <ChevronsLeft className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        disabled={currentPage === 1}
-                        className="h-8 w-8 p-0"
-                      >
-                        <span className="sr-only">Go to previous page</span>
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
+            {/* Enhanced Pagination */}
+            {totalPages > 1 && (
+              <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-6 p-6 bg-gradient-to-r from-gray-50 to-blue-50 dark:from-slate-800 dark:to-slate-700 rounded-2xl border border-gray-200 dark:border-slate-600 shadow-xl">
+                <div className="flex items-center gap-4">
+                  <Label className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                    Records per page:
+                  </Label>
+                  <Select
+                    value={String(recordsPerPage)}
+                    onValueChange={(value) => {
+                      setRecordsPerPage(Number(value));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-20 h-10 border-2 border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white dark:bg-slate-800 border-2 border-gray-200 dark:border-slate-600 rounded-lg">
+                      <SelectItem value="5">5</SelectItem>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                      <div className="flex items-center">
-                        {getPaginationItems()}
-                      </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(1)}
+                    disabled={currentPage === 1}
+                    className="border-2 border-gray-200 dark:border-slate-600 hover:bg-blue-50 dark:hover:bg-slate-700 disabled:opacity-50 rounded-lg"
+                  >
+                    <ChevronsLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="border-2 border-gray-200 dark:border-slate-600 hover:bg-blue-50 dark:hover:bg-slate-700 disabled:opacity-50 rounded-lg"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
 
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={currentPage === totalPages}
-                        className="h-8 w-8 p-0"
-                      >
-                        <span className="sr-only">Go to next page</span>
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePageChange(totalPages)}
-                        disabled={currentPage === totalPages}
-                        className="hidden sm:flex h-8 w-8 p-0"
-                      >
-                        <span className="sr-only">Go to last page</span>
-                        <ChevronsRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <Select
-                      value={String(recordsPerPage)}
-                      onValueChange={(value) => {
-                        setRecordsPerPage(Number(value));
-                        setCurrentPage(1);
-                      }}
+                  {paginationItems.map((page) => (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(page)}
+                      className={`border-2 rounded-lg font-semibold ${
+                        currentPage === page
+                          ? "bg-blue-600 text-white border-blue-600 shadow-lg"
+                          : "border-gray-200 dark:border-slate-600 hover:bg-blue-50 dark:hover:bg-slate-700"
+                      }`}
                     >
-                      <SelectTrigger className="h-8 w-[70px]">
-                        <SelectValue placeholder={recordsPerPage} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[5, 10, 20, 50].map((pageSize) => (
-                          <SelectItem key={pageSize} value={String(pageSize)}>
-                            {pageSize}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          <div className="text-sm text-gray-500">
-            {attendanceData.length} record(s) found on this page
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fetchAttendanceData()}
-              className="flex items-center gap-1"
-            >
-              <RefreshCw size={14} /> Refresh Data
-            </Button>
-          </div>
-        </CardFooter>
-      </Card>
+                      {page}
+                    </Button>
+                  ))}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Attendance Guidelines</CardTitle>
-          <CardDescription>
-            Understanding attendance tracking and compliance with schedules
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div className="flex gap-3">
-                <CheckCircle className="h-6 w-6 text-green-500" />
-                <div>
-                  <h4 className="font-medium">On Time</h4>
-                  <p className="text-sm text-gray-500">
-                    Arrival and departure that comply with the scheduled time or
-                    are within the configured grace period.
-                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="border-2 border-gray-200 dark:border-slate-600 hover:bg-blue-50 dark:hover:bg-slate-700 disabled:opacity-50 rounded-lg"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="border-2 border-gray-200 dark:border-slate-600 hover:bg-blue-50 dark:hover:bg-slate-700 disabled:opacity-50 rounded-lg"
+                  >
+                    <ChevronsRight className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="text-sm text-gray-600 dark:text-gray-300 font-medium">
+                  Showing {(currentPage - 1) * recordsPerPage + 1} to{" "}
+                  {Math.min(currentPage * recordsPerPage, filteredData.length)}{" "}
+                  of {filteredData.length} results
                 </div>
               </div>
+            )}
+          </CardContent>
 
-              <div className="flex gap-3">
-                <XCircle className="h-6 w-6 text-red-500" />
-                <div>
-                  <h4 className="font-medium">Late Arrival</h4>
-                  <p className="text-sm text-gray-500">
-                    Check-in after the scheduled start time that exceeds the
-                    configured grace period.
-                  </p>
+          <CardFooter className="bg-gradient-to-r from-gray-50 to-blue-50 dark:from-slate-800 dark:to-slate-700 p-6 rounded-b-xl border-t border-gray-200 dark:border-slate-600">
+            <div className="flex flex-col sm:flex-row items-center justify-between w-full gap-4">
+              <div className="flex items-center gap-6 text-sm text-gray-600 dark:text-gray-300">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  <span className="font-semibold">
+                    Total Records: {filteredData.length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  <span>
+                    Last Updated: {format(new Date(), "yyyy-MM-dd, HH:mm:ss")}
+                  </span>
                 </div>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchAllData}
+                className="border-2 border-blue-200 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all duration-300 shadow-lg hover:shadow-xl rounded-lg font-semibold"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
             </div>
+          </CardFooter>
+        </Card>
 
-            <div className="space-y-4">
-              <div className="flex gap-3">
-                <AlertTriangle className="h-6 w-6 text-yellow-500" />
-                <div>
-                  <h4 className="font-medium">Early Departure</h4>
-                  <p className="text-sm text-gray-500">
-                    Check-out before the scheduled end time that exceeds the
-                    configured early departure grace period.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <Clock className="h-6 w-6 text-blue-500" />
-                <div>
-                  <h4 className="font-medium">Time Profiles</h4>
-                  <p className="text-sm text-gray-500">
-                    Employees are tracked based on their assigned time
-                    management profiles, which define work hours and grace
-                    periods.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Manual Attendance Modal */}
+        <ManualAttendanceModal
+          isOpen={isManualEntryOpen}
+          onClose={() => setIsManualEntryOpen(false)}
+          onSubmit={handleManualAttendanceSubmit}
+          employees={rawData.employees}
+        />
+        <EditAttendanceModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setEditRecord(null);
+          }}
+          attendanceRecord={editRecord}
+          onSuccess={handleEditSuccess}
+          token={token}
+        />
+      </div>
     </div>
   );
 }

@@ -22,6 +22,6 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "app/dashboard/team/page.tsx", "app/preview/page.jsx", "app/dashboard/department/page.tsx", "components/data-table/data-table.jsx"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "app/dashboard/manage-employee/page.tsx", "app/preview/page.jsx", "app/dashboard/department/page.tsx", "components/data-table/data-table.jsx", "app/dashboard/swaping-workers/manage/page.jsx", "scripts/encrypt-date.js"],
   "exclude": ["node_modules"]
 }

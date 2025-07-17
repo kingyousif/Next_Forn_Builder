@@ -67,6 +67,7 @@ import {
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils"; // Utility to combine Tailwind classes
 import { toast } from "sonner";
+import { useAuth } from "@/components/context/page";
 
 export default function HRTimeManagement() {
   // State for employee time management data
@@ -83,6 +84,7 @@ export default function HRTimeManagement() {
   const [formData, setFormData] = useState({
     name: "",
     userId: [], // Changed from userId to userId array
+    scheduleType: "standard", // New field: standard, flexible, on-call
     workHoursPerDay: 8,
     workDaysPerWeek: 5,
     graceMinutesLate: 15,
@@ -90,7 +92,20 @@ export default function HRTimeManagement() {
     startTime: "09:00",
     endTime: "17:00",
     notes: "",
+    // New fields for advanced scheduling
+    schedulePatterns: [],
   });
+
+  // New state for schedule pattern being edited
+  const [currentPattern, setCurrentPattern] = useState({
+    days: [], // Array of days: 0=Sunday, 1=Monday, etc.
+    startTime: "09:00",
+    endTime: "17:00",
+  });
+
+  // New state for schedule pattern dialog
+  const [patternDialogOpen, setPatternDialogOpen] = useState(false);
+  const [editingPatternIndex, setEditingPatternIndex] = useState(null);
 
   // State for user selection dropdown
   const [selectedUser, setSelectedUser] = useState("");
@@ -117,6 +132,7 @@ export default function HRTimeManagement() {
       .slice(0, 10);
   }, [users, formData.userId, searchTerm]);
   const url = process.env.NEXT_PUBLIC_API_URL;
+  const { user } = useAuth();
 
   // Fetch data on component mount
   useEffect(() => {
@@ -149,9 +165,11 @@ export default function HRTimeManagement() {
 
   const fetchUsers = async () => {
     try {
-      await axios.get(`${url}attendanceUser/fetch`).then((res) => {
-        setUsers(res.data);
-      });
+      await axios
+        .post(`${url}attendanceUser/fetch`, { reqUserId: user.id ?? user._id })
+        .then((res) => {
+          setUsers(res.data);
+        });
     } catch (err) {
       console.error("Error fetching users:", err);
     }
@@ -206,21 +224,33 @@ export default function HRTimeManagement() {
           "Unknown User"
       );
 
+      // Validate schedule data based on type
+      if (
+        formData.scheduleType === "flexible" &&
+        formData.schedulePatterns.length === 0
+      ) {
+        toast.error(
+          "Please add at least one schedule pattern for flexible schedules"
+        );
+        return;
+      }
+
       const newRecord = {
         ...formData,
         userNames,
       };
 
-      await axios.post(`${url}timeManagement/create`, newRecord).then((res) => {
-        setEmployeeTimeData([
-          ...employeeTimeData,
-          { ...newRecord, _id: res.data.id },
-        ]);
-        resetForm();
+      let response = await axios.post(`${url}timeManagement/create`, newRecord);
 
-        setIsDialogOpen(false); // Close dialog after successful submission
-        toast.success(res?.data?.message || "Record created successfully");
-      });
+      // Update state
+      setEmployeeTimeData([
+        ...employeeTimeData,
+        { ...newRecord, _id: response.data.id },
+      ]);
+
+      resetForm();
+      setIsDialogOpen(false);
+      toast.success(response?.data?.message || "Record created successfully");
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to create record");
       setError("Failed to create record");
@@ -345,6 +375,7 @@ export default function HRTimeManagement() {
     setFormData({
       name: item.name,
       userId: item.userId,
+      scheduleType: item.scheduleType || "standard",
       workHoursPerDay: item.workHoursPerDay,
       workDaysPerWeek: item.workDaysPerWeek,
       graceMinutesLate: item.graceMinutesLate,
@@ -352,16 +383,19 @@ export default function HRTimeManagement() {
       startTime: item.startTime,
       endTime: item.endTime,
       notes: item.notes || "",
+      schedulePatterns: item.schedulePatterns || [],
     });
     setIsEditing(true);
     setCurrentId(item._id);
     setIsDialogOpen(true);
   };
 
+  // Reset form with updated structure
   const resetForm = () => {
     setFormData({
       name: "",
       userId: [],
+      scheduleType: "standard",
       workHoursPerDay: 8,
       workDaysPerWeek: 5,
       graceMinutesLate: 15,
@@ -369,10 +403,90 @@ export default function HRTimeManagement() {
       startTime: "09:00",
       endTime: "17:00",
       notes: "",
+      schedulePatterns: [],
     });
     setSelectedUser("");
     setIsEditing(false);
     setCurrentId(null);
+  };
+
+  // Reset current pattern being edited
+  const resetCurrentPattern = () => {
+    setCurrentPattern({
+      days: [],
+      startTime: "09:00",
+      endTime: "17:00",
+    });
+    setEditingPatternIndex(null);
+  };
+
+  // Open dialog to add/edit schedule pattern
+  const openPatternDialog = (patternIndex = null) => {
+    if (patternIndex !== null) {
+      // Edit existing pattern
+      setCurrentPattern({ ...formData.schedulePatterns[patternIndex] });
+      setEditingPatternIndex(patternIndex);
+    } else {
+      // Add new pattern
+      resetCurrentPattern();
+    }
+    setPatternDialogOpen(true);
+  };
+
+  // Handle day selection for schedule pattern
+  const handleDayToggle = (day) => {
+    setCurrentPattern((prev) => {
+      const newDays = prev.days.includes(day)
+        ? prev.days.filter((d) => d !== day)
+        : [...prev.days, day];
+      return { ...prev, days: newDays.sort() };
+    });
+  };
+
+  // Handle time change for schedule pattern
+  const handlePatternTimeChange = (e) => {
+    const { name, value } = e.target;
+    setCurrentPattern((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  // Save current pattern to form data
+  const savePattern = () => {
+    if (currentPattern.days.length === 0) {
+      toast.error("Please select at least one day");
+      return;
+    }
+
+    setFormData((prev) => {
+      const newPatterns = [...prev.schedulePatterns];
+      if (editingPatternIndex !== null) {
+        // Update existing pattern
+        newPatterns[editingPatternIndex] = { ...currentPattern };
+      } else {
+        // Add new pattern
+        newPatterns.push({ ...currentPattern });
+      }
+      return { ...prev, schedulePatterns: newPatterns };
+    });
+
+    setPatternDialogOpen(false);
+    resetCurrentPattern();
+  };
+
+  // Remove a schedule pattern
+  const removePattern = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      schedulePatterns: prev.schedulePatterns.filter((_, i) => i !== index),
+    }));
+  };
+
+  // Format day names for display
+  const getDayNames = (days) => {
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    return days.map((day) => dayNames[day]).join(", ");
   };
 
   const openCreateDialog = () => {
@@ -470,7 +584,30 @@ export default function HRTimeManagement() {
                       <TableCell>{item.workHoursPerDay}h</TableCell>
                       <TableCell>{item.workDaysPerWeek} days</TableCell>
                       <TableCell>
-                        {item.startTime} - {item.endTime}
+                        {item.scheduleType === "standard" ? (
+                          <>
+                            {item.startTime} - {item.endTime}
+                          </>
+                        ) : item.scheduleType === "flexible" ? (
+                          <div className="text-xs">
+                            {item.schedulePatterns?.length > 0 ? (
+                              <ScrollArea className="h-20">
+                                {item.schedulePatterns.map((pattern, idx) => (
+                                  <div key={idx} className="mb-1">
+                                    <Badge variant="outline" className="mr-1">
+                                      {getDayNames(pattern.days)}
+                                    </Badge>
+                                    {pattern.startTime} - {pattern.endTime}
+                                  </div>
+                                ))}
+                              </ScrollArea>
+                            ) : (
+                              "No patterns defined"
+                            )}
+                          </div>
+                        ) : (
+                          <Badge>On-Call</Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
@@ -580,7 +717,6 @@ export default function HRTimeManagement() {
                   required
                 />
               </div>
-
               {/* Multi-user selection section */}
               <div className="grid grid-cols-4 items-start gap-4">
                 <Label className="text-right mt-2">Employees</Label>
@@ -673,70 +809,201 @@ export default function HRTimeManagement() {
                 </div>
               </div>
 
+              {/* Schedule Type Selection */}
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="workHoursPerDay" className="text-right">
-                  Hours Per Day
-                </Label>
-                <Input
-                  id="workHoursPerDay"
-                  name="workHoursPerDay"
-                  type="number"
-                  min="1"
-                  max="24"
-                  value={formData.workHoursPerDay}
-                  onChange={handleInputChange}
-                  className="col-span-3"
-                  required
-                />
+                <Label className="text-right">Schedule Type</Label>
+                <div className="col-span-3">
+                  <div className="flex space-x-4">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        id="standard"
+                        name="scheduleType"
+                        value="standard"
+                        checked={formData.scheduleType === "standard"}
+                        onChange={handleInputChange}
+                        className="h-4 w-4"
+                      />
+                      <Label htmlFor="standard" className="cursor-pointer">
+                        Standard
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        id="flexible"
+                        name="scheduleType"
+                        value="flexible"
+                        checked={formData.scheduleType === "flexible"}
+                        onChange={handleInputChange}
+                        className="h-4 w-4"
+                      />
+                      <Label htmlFor="flexible" className="cursor-pointer">
+                        Flexible
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        id="on-call"
+                        name="scheduleType"
+                        value="on-call"
+                        checked={formData.scheduleType === "on-call"}
+                        onChange={handleInputChange}
+                        className="h-4 w-4"
+                      />
+                      <Label htmlFor="on-call" className="cursor-pointer">
+                        On-Call
+                      </Label>
+                    </div>
+                  </div>
+                </div>
               </div>
+              {/* Standard Schedule Fields */}
+              {formData.scheduleType === "standard" && (
+                <>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="workHoursPerDay" className="text-right">
+                      Hours Per Day
+                    </Label>
+                    <Input
+                      id="workHoursPerDay"
+                      name="workHoursPerDay"
+                      type="number"
+                      min="1"
+                      max="24"
+                      value={formData.workHoursPerDay}
+                      onChange={handleInputChange}
+                      className="col-span-3"
+                      required
+                    />
+                  </div>
 
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="workDaysPerWeek" className="text-right">
-                  Days Per Week
-                </Label>
-                <Input
-                  id="workDaysPerWeek"
-                  name="workDaysPerWeek"
-                  type="number"
-                  min="1"
-                  max="7"
-                  value={formData.workDaysPerWeek}
-                  onChange={handleInputChange}
-                  className="col-span-3"
-                  required
-                />
-              </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="workDaysPerWeek" className="text-right">
+                      Days Per Week
+                    </Label>
+                    <Input
+                      id="workDaysPerWeek"
+                      name="workDaysPerWeek"
+                      type="number"
+                      min="1"
+                      max="7"
+                      value={formData.workDaysPerWeek}
+                      onChange={handleInputChange}
+                      className="col-span-3"
+                      required
+                    />
+                  </div>
 
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="startTime" className="text-right">
-                  Start Time
-                </Label>
-                <Input
-                  id="startTime"
-                  name="startTime"
-                  type="time"
-                  value={formData.startTime}
-                  onChange={handleInputChange}
-                  className="col-span-3"
-                  required
-                />
-              </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="startTime" className="text-right">
+                      Start Time
+                    </Label>
+                    <Input
+                      id="startTime"
+                      name="startTime"
+                      type="time"
+                      value={formData.startTime}
+                      onChange={handleInputChange}
+                      className="col-span-3"
+                      required
+                    />
+                  </div>
 
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="endTime" className="text-right">
-                  End Time
-                </Label>
-                <Input
-                  id="endTime"
-                  name="endTime"
-                  type="time"
-                  value={formData.endTime}
-                  onChange={handleInputChange}
-                  className="col-span-3"
-                  required
-                />
-              </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="endTime" className="text-right">
+                      End Time
+                    </Label>
+                    <Input
+                      id="endTime"
+                      name="endTime"
+                      type="time"
+                      value={formData.endTime}
+                      onChange={handleInputChange}
+                      className="col-span-3"
+                      required
+                    />
+                  </div>
+                </>
+              )}
+              {/* Flexible Schedule Fields */}
+              {formData.scheduleType === "flexible" && (
+                <div className="grid grid-cols-4 items-start gap-4">
+                  <Label className="text-right mt-2">Schedule Patterns</Label>
+                  <div className="col-span-3 space-y-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => openPatternDialog()}
+                      className="w-full flex items-center justify-center gap-2"
+                    >
+                      <PlusCircle size={16} />
+                      Add Schedule Pattern
+                    </Button>
 
+                    {formData.schedulePatterns.length > 0 ? (
+                      <div className="border rounded-md p-2">
+                        <ScrollArea className="h-48">
+                          <div className="space-y-2">
+                            {formData.schedulePatterns.map((pattern, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center justify-between p-2 border rounded-md bg-slate-50"
+                              >
+                                <div>
+                                  <div className="font-medium">
+                                    {getDayNames(pattern.days)}
+                                  </div>
+                                  <div className="text-sm text-slate-500">
+                                    {pattern.startTime} - {pattern.endTime}
+                                  </div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => openPatternDialog(index)}
+                                  >
+                                    <Edit size={16} />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-red-500"
+                                    onClick={() => removePattern(index)}
+                                  >
+                                    <Trash size={16} />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500 text-center py-2 border rounded-md">
+                        No schedule patterns defined
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+              {/* On-Call Schedule Fields */}
+              {formData.scheduleType === "on-call" && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">On-Call Status</Label>
+                  <div className="col-span-3">
+                    <p className="text-sm text-slate-500">
+                      On-call employees have no fixed schedule and are called in
+                      as needed.
+                    </p>
+                  </div>
+                </div>
+              )}
+              {/* Grace Period Fields - Common for all schedule types */}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="graceMinutesLate" className="text-right">
                   Grace Minutes (Late)
@@ -751,36 +1018,6 @@ export default function HRTimeManagement() {
                   onChange={handleInputChange}
                   className="col-span-3"
                   required
-                />
-              </div>
-
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="graceMinutesEarly" className="text-right">
-                  Grace Minutes (Early)
-                </Label>
-                <Input
-                  id="graceMinutesEarly"
-                  name="graceMinutesEarly"
-                  type="number"
-                  min="0"
-                  max="120"
-                  value={formData.graceMinutesEarly}
-                  onChange={handleInputChange}
-                  className="col-span-3"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="notes" className="text-right">
-                  Notes
-                </Label>
-                <Input
-                  id="notes"
-                  name="notes"
-                  value={formData.notes}
-                  onChange={handleInputChange}
-                  className="col-span-3"
                 />
               </div>
             </div>
@@ -803,6 +1040,96 @@ export default function HRTimeManagement() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Pattern Dialog */}
+      <Dialog open={patternDialogOpen} onOpenChange={setPatternDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editingPatternIndex !== null
+                ? "Edit Schedule Pattern"
+                : "Add Schedule Pattern"}
+            </DialogTitle>
+            <DialogDescription>
+              Define which days and hours this schedule applies to
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>Select Days</Label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { day: 0, label: "Sun" },
+                  { day: 1, label: "Mon" },
+                  { day: 2, label: "Tue" },
+                  { day: 3, label: "Wed" },
+                  { day: 4, label: "Thu" },
+                  { day: 5, label: "Fri" },
+                  { day: 6, label: "Sat" },
+                ].map(({ day, label }) => (
+                  <Button
+                    key={day}
+                    type="button"
+                    variant={
+                      currentPattern.days.includes(day) ? "default" : "outline"
+                    }
+                    className={`w-12 h-10 ${
+                      currentPattern.days.includes(day) ? "bg-blue-500" : ""
+                    }`}
+                    onClick={() => handleDayToggle(day)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="patternStartTime">Start Time</Label>
+                <Input
+                  id="patternStartTime"
+                  name="startTime"
+                  type="time"
+                  value={currentPattern.startTime}
+                  onChange={handlePatternTimeChange}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="patternEndTime">End Time</Label>
+                <Input
+                  id="patternEndTime"
+                  name="endTime"
+                  type="time"
+                  value={currentPattern.endTime}
+                  onChange={handlePatternTimeChange}
+                  required
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                resetCurrentPattern();
+                setPatternDialogOpen(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={savePattern}
+              disabled={currentPattern.days.length === 0}
+            >
+              Save Pattern
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
