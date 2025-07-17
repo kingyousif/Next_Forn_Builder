@@ -143,7 +143,7 @@ export function FormAnalytics() {
   ]);
 
   const url = process.env.NEXT_PUBLIC_API_URL;
-  const { user } = useAuth();
+  const { user, role } = useAuth();
 
   const COLORS = [
     "#0088FE",
@@ -244,6 +244,7 @@ export function FormAnalytics() {
           formMap.set(sub.formId, {
             id: sub.formId,
             title: sub.formTitle,
+            department: sub.department,
           });
         }
       });
@@ -1241,10 +1242,26 @@ export function FormAnalytics() {
       </div>
 
       <Tabs defaultValue="users">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="forms">Form Analytics</TabsTrigger>
-          <TabsTrigger value="users">User Analytics</TabsTrigger>
-          <TabsTrigger value="allusers">All Users Analytics</TabsTrigger>
+        <TabsList
+          className={`grid w-full ${
+            role === "admin" || role === "super admin"
+              ? "grid-cols-3"
+              : "grid-cols-1"
+          }`}
+        >
+          {(role === "admin" || role === "super admin") && (
+            <TabsTrigger value="forms" className="w-full">
+              Form Analytics
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="users" className="w-full">
+            User Analytics
+          </TabsTrigger>
+          {(role === "admin" || role === "super admin") && (
+            <TabsTrigger value="allusers" className="w-full">
+              All Users Analytics
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* User Analytics Tab */}
@@ -2005,6 +2022,9 @@ export function FormAnalytics() {
                       {departmentForms.map((form) => (
                         <SelectItem key={form.id} value={form.id}>
                           {form.title}
+                          <span className="text-muted-foreground text-xs bg-muted px-2 py-1 rounded-md absolute right-1 top-1">
+                            {form.department || "No Department"}
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>

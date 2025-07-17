@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import {
   Select,
@@ -41,6 +42,10 @@ import {
   Trash,
   ChevronsUpDown,
   Check,
+  Eye,
+  EyeOff,
+  Plus,
+  AlertCircle,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { cn } from "@/lib/utils";
@@ -55,6 +60,7 @@ import {
 } from "../ui/command";
 import axios from "axios";
 import { useAuth } from "../context/page";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface FormElementItemProps {
   element: any;
@@ -70,13 +76,21 @@ export function FormElementItem({
   formData,
 }: FormElementItemProps) {
   const [showSettings, setShowSettings] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id: element.id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: element.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+    opacity: isDragging ? 0.5 : 1,
   };
 
   const handleLabelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,6 +140,25 @@ export function FormElementItem({
   const { user } = useAuth();
   const [users, setUsers] = useState([]);
   const url = process.env.NEXT_PUBLIC_API_URL || "";
+
+  // Get element type info for styling
+  const getElementTypeInfo = (type: string) => {
+    const typeMap = {
+      name: { color: "bg-purple-500", label: "Department" },
+      text: { color: "bg-blue-500", label: "Text" },
+      textarea: { color: "bg-green-500", label: "Textarea" },
+      dropdown: { color: "bg-orange-500", label: "Dropdown" },
+      checkbox: { color: "bg-indigo-500", label: "Checkbox" },
+      radio: { color: "bg-pink-500", label: "Radio" },
+      date: { color: "bg-teal-500", label: "Date" },
+      file: { color: "bg-yellow-500", label: "File" },
+      divider: { color: "bg-gray-500", label: "Divider" },
+      select: { color: "bg-violet-500", label: "Select" },
+    };
+    return typeMap[type as keyof typeof typeMap] || { color: "bg-gray-500", label: "Unknown" };
+  };
+
+  const typeInfo = getElementTypeInfo(element.type);
 
   const renderElementPreview = () => {
     switch (element.type) {
@@ -178,12 +211,12 @@ export function FormElementItem({
           };
 
           fetchData();
-        }, [user?.department, url]); // Add dependencies to prevent unnecessary fetches
+        }, [user?.department, url]);
 
         // Update options when users change
         useEffect(() => {
           if (users.length > 0) {
-            const userOptions = users.map((user) => ({
+            const userOptions = users.map((user : any) => ({
               value: user.name,
               label: user.fullName,
             }));
@@ -204,7 +237,7 @@ export function FormElementItem({
                 variant="outline"
                 role="combobox"
                 aria-expanded={open}
-                className="w-full justify-between"
+                className="w-full justify-between bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm"
               >
                 {element.value
                   ? options.find(
@@ -232,7 +265,7 @@ export function FormElementItem({
                     </Button>
                   </CommandEmpty>
                   <CommandGroup>
-                    {options.map((option) => (
+                    {options.map((option: any) => (
                       <CommandItem
                         key={option.value}
                         value={option.value}
@@ -264,6 +297,7 @@ export function FormElementItem({
           <Input
             placeholder={element.placeholder || "Enter text..."}
             disabled
+            className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm"
           />
         );
       case "textarea":
@@ -272,12 +306,13 @@ export function FormElementItem({
             placeholder={element.placeholder || "Enter text..."}
             disabled
             rows={3}
+            className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm resize-none"
           />
         );
       case "dropdown":
         return (
           <Select disabled>
-            <SelectTrigger>
+            <SelectTrigger className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
               <SelectValue
                 placeholder={element.placeholder || "Select an option"}
               />
@@ -293,22 +328,37 @@ export function FormElementItem({
         );
       case "checkbox":
         return (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {element.options?.map((option: any) => (
-              <div key={option.id} className="flex items-center space-x-2">
-                <input type="checkbox" id={option.id} disabled />
-                <label htmlFor={option.id}>{option.label}</label>
+              <div
+                key={option.id}
+                className="flex items-center space-x-3 p-2 rounded-lg bg-white/30 dark:bg-gray-800/30"
+              >
+                <input
+                  type="checkbox"
+                  id={option.id}
+                  disabled
+                  className="rounded"
+                />
+                <label htmlFor={option.id} className="text-sm font-medium">
+                  {option.label}
+                </label>
               </div>
             ))}
           </div>
         );
       case "radio":
         return (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {element.options?.map((option: any) => (
-              <div key={option.id} className="flex items-center space-x-2">
+              <div
+                key={option.id}
+                className="flex items-center space-x-3 p-2 rounded-lg bg-white/30 dark:bg-gray-800/30"
+              >
                 <input type="radio" name={element.id} id={option.id} disabled />
-                <label htmlFor={option.id}>{option.label}</label>
+                <label htmlFor={option.id} className="text-sm font-medium">
+                  {option.label}
+                </label>
               </div>
             ))}
           </div>
@@ -320,7 +370,7 @@ export function FormElementItem({
               <Button
                 variant={"outline"}
                 className={cn(
-                  "w-full justify-start text-left font-normal",
+                  "w-full justify-start text-left font-normal bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm",
                   !element.date && "text-muted-foreground"
                 )}
               >
@@ -328,11 +378,11 @@ export function FormElementItem({
                 {element.date ? (
                   format(element.date, "PPP")
                 ) : (
-                  <span>{element.placeholder || "pick up a date"}</span>
+                  <span>{element.placeholder || "Pick a date"}</span>
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="!w-full p-0">
+            <PopoverContent className="w-full! p-0">
               <Calendar
                 mode="single"
                 selected={element.date}
@@ -343,11 +393,17 @@ export function FormElementItem({
           </Popover>
         );
       case "file":
-        return <Input type="file" disabled />;
+        return (
+          <Input
+            type="file"
+            disabled
+            className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm"
+          />
+        );
       case "divider":
         return (
-          <div className="py-2">
-            <div className="border-t" />
+          <div className="py-4">
+            <div className="border-t-2 border-gradient-to-r from-gray-200 via-gray-400 to-gray-200 dark:from-gray-700 dark:via-gray-500 dark:to-gray-700" />
           </div>
         );
       case "select":
@@ -371,7 +427,7 @@ export function FormElementItem({
 
         const handleSelectItem = (value: string) => {
           const newSelectedValues = selectedValues.includes(value)
-            ? selectedValues.filter((item) => item !== value)
+            ? selectedValues.filter((item : any) => item !== value)
             : [...selectedValues, value];
 
           setSelectedValues(newSelectedValues);
@@ -386,7 +442,7 @@ export function FormElementItem({
               <Button
                 variant="outline"
                 role="combobox"
-                className="w-full justify-between"
+                className="w-full justify-between bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm"
                 disabled
               >
                 {selectedValues.length > 0
@@ -440,305 +496,420 @@ export function FormElementItem({
   };
 
   return (
-    <Card ref={setNodeRef} style={style} className="relative">
-      <div
-        {...attributes}
-        {...listeners}
-        className="absolute left-2 top-3 cursor-grab"
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.2 }}
+    >
+      <Card
+        ref={setNodeRef}
+        style={style}
+        className={cn(
+          "relative group transition-all duration-300 border-2 hover:border-primary/20 shadow-lg hover:shadow-xl bg-gradient-to-br from-white via-gray-50/50 to-white dark:from-gray-900 dark:via-gray-800/50 dark:to-gray-900",
+          isDragging && "shadow-2xl border-primary/40 rotate-2",
+          showSettings && "ring-2 ring-primary/20"
+        )}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
-        <GripVertical className="h-5 w-5 text-muted-foreground" />
-      </div>
-
-      <CardHeader className="pl-10">
-        <div className="flex items-center justify-between">
-          <Label>{element.label}</Label>
-          {element.required && (
-            <span className="text-sm text-destructive">*</span>
+        {/* Drag Handle */}
+        <div
+          {...attributes}
+          {...listeners}
+          className={cn(
+            "absolute left-3 top-4 cursor-grab active:cursor-grabbing transition-all duration-200 z-10",
+            isHovered ? "opacity-100" : "opacity-40"
           )}
+        >
+          <div className="p-1 rounded bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm">
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </div>
         </div>
-      </CardHeader>
 
-      <CardContent>{renderElementPreview()}</CardContent>
+        <CardHeader className="pl-12 pr-4 pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={cn("w-2 h-2 rounded-full", typeInfo.color)} />
+              <Label className="font-medium text-base">{element.label}</Label>
+              {element.required && (
+                <Badge variant="destructive" className="text-xs px-2 py-0.5">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  Required
+                </Badge>
+              )}
+            </div>
+            <Badge variant="outline" className="text-xs">
+              {typeInfo.label}
+            </Badge>
+          </div>
+        </CardHeader>
 
-      <CardFooter className="flex justify-between border-t p-2">
-        <div className="flex gap-1">
+        <CardContent className="px-6 pb-4">
+          {renderElementPreview()}
+        </CardContent>
+
+        <CardFooter className="flex justify-between border-t bg-gray-50/50 dark:bg-gray-800/50 px-4 py-3">
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSettings(!showSettings)}
+              className={cn(
+                "transition-all duration-200",
+                showSettings
+                  ? "bg-primary/10 text-primary"
+                  : "hover:bg-gray-100 dark:hover:bg-gray-700"
+              )}
+            >
+              {showSettings ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Settings className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setShowSettings(!showSettings)}
+            onClick={onRemove}
+            className="text-destructive hover:text-destructive hover:bg-destructive/10 transition-all duration-200"
           >
-            <Settings className="h-4 w-4" />
+            <Trash2 className="h-4 w-4" />
           </Button>
-        </div>
-        <Button variant="ghost" size="sm" onClick={onRemove}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </CardFooter>
+        </CardFooter>
 
-      {showSettings && (
-        <div className="border-t p-4">
-          <Accordion type="single" collapsible defaultValue="settings">
-            <AccordionItem value="settings" className="border-none">
-              <AccordionTrigger className="py-2">
-                Element Settings
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor={`${element.id}-label`}>Label</Label>
-                    <Input
-                      id={`${element.id}-label`}
-                      value={element.label}
-                      onChange={handleLabelChange}
-                    />
-                  </div>
-
-                  {element.type === "name" && <div className="space-y-2"></div>}
-                  {element.type === "select" && (
-                    <div className="space-y-2">
-                      <Label htmlFor={`${element.id}-placeholder`}>
-                        Placeholder
-                      </Label>
-                      <Input
-                        id={`${element.id}-placeholder`}
-                        value={element.placeholder}
-                        onChange={handlePlaceholderChange}
-                      />
-
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          id={`${element.id}-required`}
-                          checked={element.required}
-                          onCheckedChange={handleRequiredChange}
-                        />
-                        <Label htmlFor={`${element.id}-required`}>
-                          Required
-                        </Label>
+        <AnimatePresence>
+          {showSettings && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="border-t bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900"
+            >
+              <div className="p-6">
+                <Accordion type="single" collapsible defaultValue="settings">
+                  <AccordionItem value="settings" className="border-none">
+                    <AccordionTrigger className="py-3 hover:no-underline">
+                      <div className="flex items-center gap-2">
+                        <Settings className="h-4 w-4" />
+                        <span className="font-medium">Element Settings</span>
                       </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-6 pt-2">
+                        <div className="space-y-3">
+                          <Label
+                            htmlFor={`${element.id}-label`}
+                            className="text-sm font-medium"
+                          >
+                            Label
+                          </Label>
+                          <Input
+                            id={`${element.id}-label`}
+                            value={element.label}
+                            onChange={handleLabelChange}
+                            className="bg-white dark:bg-gray-800"
+                          />
+                        </div>
 
-                      <div className="space-y-2">
-                        <Label className="text-red-400">Options</Label>
-                        {element.options.map((option: any, index: number) => (
-                          <div key={option.id} className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Label htmlFor={`${option.id}-label`}>
-                                Option {index + 1}
-                              </Label>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                onClick={() => handleDeleteOption(option.id)}
+                        {element.type === "name" && (
+                          <div className="space-y-2"></div>
+                        )}
+
+                        {element.type === "select" && (
+                          <div className="space-y-4">
+                            <div className="space-y-3">
+                              <Label
+                                htmlFor={`${element.id}-placeholder`}
+                                className="text-sm font-medium"
                               >
-                                <Trash className="h-2 w-2" />
-                              </Button>
+                                Placeholder
+                              </Label>
+                              <Input
+                                id={`${element.id}-placeholder`}
+                                value={element.placeholder}
+                                onChange={handlePlaceholderChange}
+                                className="bg-white dark:bg-gray-800"
+                              />
                             </div>
-                            <Input
-                              id={`${option.id}-label`}
-                              value={option.label}
-                              onChange={(e) =>
-                                handleOptionLabelChange(option.id, e)
-                              }
-                            />
-                          </div>
-                        ))}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={handleAddOption}
-                        >
-                          Add Option
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                  {element.type === "dropdown" && (
-                    <div className="space-y-2">
-                      <Label htmlFor={`${element.id}-placeholder`}>
-                        Placeholder
-                      </Label>
 
-                      <Input
-                        id={`${element.id}-placeholder`}
-                        value={element.placeholder}
-                        onChange={handlePlaceholderChange}
-                      />
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          id={`${element.id}-required`}
-                          checked={element.required}
-                          onCheckedChange={handleRequiredChange}
-                        />
-                        <Label htmlFor={`${element.id}-required`}>
-                          Required
-                        </Label>
-                      </div>
-                      {element.options.map((option: any, index: number) => (
-                        <div key={option.id} className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label htmlFor={`${option.id}-label`}>
-                              Option {index + 1}
-                            </Label>{" "}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              onClick={() => handleDeleteOption(option.id)}
-                            >
-                              <Trash className="h-2 w-2" />
-                            </Button>
-                          </div>
+                            <div className="flex items-center space-x-3 p-3 rounded-lg bg-white/50 dark:bg-gray-800/50">
+                              <Switch
+                                id={`${element.id}-required`}
+                                checked={element.required}
+                                onCheckedChange={handleRequiredChange}
+                              />
+                              <Label
+                                htmlFor={`${element.id}-required`}
+                                className="text-sm font-medium"
+                              >
+                                Required field
+                              </Label>
+                            </div>
 
-                          <Input
-                            id={`${option.id}-label`}
-                            value={option.label}
-                            onChange={(e) =>
-                              handleOptionLabelChange(option.id, e)
-                            }
-                          />
-                        </div>
-                      ))}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleAddOption}
-                      >
-                        Add Option
-                      </Button>
-                    </div>
-                  )}
-                  {element.type === "checkbox" && (
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-full">
-                          <Label
-                            className="block pb-4"
-                            htmlFor={`${element.id}-required`}
-                          >
-                            Required
-                          </Label>
-                          <Switch
-                            id={`${element.id}-required`}
-                            checked={element.required}
-                            onCheckedChange={handleRequiredChange}
-                          />
-                        </div>
-                      </div>
-                      {element.options.map((option: any, index: number) => (
-                        <div key={option.id} className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label htmlFor={`${option.id}-label`}>
-                              Option {index + 1}
-                            </Label>{" "}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              onClick={() => handleDeleteOption(option.id)}
-                            >
-                              <Trash className="h-2 w-2" />
-                            </Button>
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-sm font-medium text-primary">
+                                  Options
+                                </Label>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleAddOption}
+                                  className="h-8"
+                                >
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  Add Option
+                                </Button>
+                              </div>
+                              {element.options?.map(
+                                (option: any, index: number) => (
+                                  <div
+                                    key={option.id}
+                                    className="space-y-2 p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <Label
+                                        htmlFor={`${option.id}-label`}
+                                        className="text-sm font-medium"
+                                      >
+                                        Option {index + 1}
+                                      </Label>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          handleDeleteOption(option.id)
+                                        }
+                                        className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                                      >
+                                        <Trash className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                    <Input
+                                      id={`${option.id}-label`}
+                                      value={option.label}
+                                      onChange={(e) =>
+                                        handleOptionLabelChange(option.id, e)
+                                      }
+                                      className="bg-white dark:bg-gray-800"
+                                    />
+                                  </div>
+                                )
+                              )}
+                            </div>
                           </div>
-                          <Input
-                            id={`${option.id}-label`}
-                            value={option.label}
-                            onChange={(e) =>
-                              handleOptionLabelChange(option.id, e)
-                            }
-                          />
-                        </div>
-                      ))}
+                        )}
 
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleAddOption}
-                      >
-                        Add Option
-                      </Button>
-                    </div>
-                  )}
-                  {element.type === "radio" && (
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-full">
-                          <Label
-                            className="block pb-4"
-                            htmlFor={`${element.id}-required`}
-                          >
-                            Required
-                          </Label>
-                          <Switch
-                            id={`${element.id}-required`}
-                            checked={element.required}
-                            onCheckedChange={handleRequiredChange}
-                          />
-                        </div>
-                      </div>
-                      {element.options.map((option: any, index: number) => (
-                        <div key={option.id} className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label htmlFor={`${option.id}-label`}>
-                              Option {index + 1}
-                            </Label>{" "}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              onClick={() => handleDeleteOption(option.id)}
-                            >
-                              <Trash className="h-2 w-2" />
-                            </Button>
+                        {/* Similar enhanced styling for other element types... */}
+                        {element.type === "dropdown" && (
+                          <div className="space-y-4">
+                            <div className="space-y-3">
+                              <Label
+                                htmlFor={`${element.id}-placeholder`}
+                                className="text-sm font-medium"
+                              >
+                                Placeholder
+                              </Label>
+                              <Input
+                                id={`${element.id}-placeholder`}
+                                value={element.placeholder}
+                                onChange={handlePlaceholderChange}
+                                className="bg-white dark:bg-gray-800"
+                              />
+                            </div>
+                            <div className="flex items-center space-x-3 p-3 rounded-lg bg-white/50 dark:bg-gray-800/50">
+                              <Switch
+                                id={`${element.id}-required`}
+                                checked={element.required}
+                                onCheckedChange={handleRequiredChange}
+                              />
+                              <Label
+                                htmlFor={`${element.id}-required`}
+                                className="text-sm font-medium"
+                              >
+                                Required field
+                              </Label>
+                            </div>
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-sm font-medium text-primary">
+                                  Options
+                                </Label>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleAddOption}
+                                  className="h-8"
+                                >
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  Add Option
+                                </Button>
+                              </div>
+                              {element.options?.map(
+                                (option: any, index: number) => (
+                                  <div
+                                    key={option.id}
+                                    className="space-y-2 p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <Label
+                                        htmlFor={`${option.id}-label`}
+                                        className="text-sm font-medium"
+                                      >
+                                        Option {index + 1}
+                                      </Label>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          handleDeleteOption(option.id)
+                                        }
+                                        className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                                      >
+                                        <Trash className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                    <Input
+                                      id={`${option.id}-label`}
+                                      value={option.label}
+                                      onChange={(e) =>
+                                        handleOptionLabelChange(option.id, e)
+                                      }
+                                      className="bg-white dark:bg-gray-800"
+                                    />
+                                  </div>
+                                )
+                              )}
+                            </div>
                           </div>
-                          <Input
-                            id={`${option.id}-label`}
-                            value={option.label}
-                            onChange={(e) =>
-                              handleOptionLabelChange(option.id, e)
-                            }
-                          />
-                        </div>
-                      ))}
+                        )}
 
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleAddOption}
-                      >
-                        Add Option
-                      </Button>
-                    </div>
-                  )}
-                  {element.type !== "dropdown" &&
-                    element.type !== "checkbox" &&
-                    element.type !== "radio" &&
-                    element.type !== "file" &&
-                    element.type !== "divider" &&
-                    element.type !== "name" &&
-                    element.type !== "select" && (
-                      <div className="space-y-2">
-                        <Label htmlFor={`${element.id}-placeholder`}>
-                          Placeholder
-                        </Label>
-                        <Input
-                          id={`${element.id}-placeholder`}
-                          value={element.placeholder}
-                          onChange={handlePlaceholderChange}
-                        />
-                        <div className="flex items-center space-x-2">
-                          <Switch
-                            id={`${element.id}-required`}
-                            checked={element.required}
-                            onCheckedChange={handleRequiredChange}
-                          />
-                          <Label htmlFor={`${element.id}-required`}>
-                            Required
-                          </Label>
-                        </div>
+                        {(element.type === "checkbox" ||
+                          element.type === "radio") && (
+                          <div className="space-y-4">
+                            <div className="flex items-center space-x-3 p-3 rounded-lg bg-white/50 dark:bg-gray-800/50">
+                              <Switch
+                                id={`${element.id}-required`}
+                                checked={element.required}
+                                onCheckedChange={handleRequiredChange}
+                              />
+                              <Label
+                                htmlFor={`${element.id}-required`}
+                                className="text-sm font-medium"
+                              >
+                                Required field
+                              </Label>
+                            </div>
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-sm font-medium text-primary">
+                                  Options
+                                </Label>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleAddOption}
+                                  className="h-8"
+                                >
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  Add Option
+                                </Button>
+                              </div>
+                              {element.options?.map(
+                                (option: any, index: number) => (
+                                  <div
+                                    key={option.id}
+                                    className="space-y-2 p-3 rounded-lg bg-white/50 dark:bg-gray-800/50 border"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <Label
+                                        htmlFor={`${option.id}-label`}
+                                        className="text-sm font-medium"
+                                      >
+                                        Option {index + 1}
+                                      </Label>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          handleDeleteOption(option.id)
+                                        }
+                                        className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                                      >
+                                        <Trash className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                    <Input
+                                      id={`${option.id}-label`}
+                                      value={option.label}
+                                      onChange={(e) =>
+                                        handleOptionLabelChange(option.id, e)
+                                      }
+                                      className="bg-white dark:bg-gray-800"
+                                    />
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {element.type !== "dropdown" &&
+                          element.type !== "checkbox" &&
+                          element.type !== "radio" &&
+                          element.type !== "file" &&
+                          element.type !== "divider" &&
+                          element.type !== "name" &&
+                          element.type !== "select" && (
+                            <div className="space-y-4">
+                              <div className="space-y-3">
+                                <Label
+                                  htmlFor={`${element.id}-placeholder`}
+                                  className="text-sm font-medium"
+                                >
+                                  Placeholder
+                                </Label>
+                                <Input
+                                  id={`${element.id}-placeholder`}
+                                  value={element.placeholder}
+                                  onChange={handlePlaceholderChange}
+                                  className="bg-white dark:bg-gray-800"
+                                />
+                              </div>
+                              <div className="flex items-center space-x-3 p-3 rounded-lg bg-white/50 dark:bg-gray-800/50">
+                                <Switch
+                                  id={`${element.id}-required`}
+                                  checked={element.required}
+                                  onCheckedChange={handleRequiredChange}
+                                />
+                                <Label
+                                  htmlFor={`${element.id}-required`}
+                                  className="text-sm font-medium"
+                                >
+                                  Required field
+                                </Label>
+                              </div>
+                            </div>
+                          )}
                       </div>
-                    )}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        </div>
-      )}
-    </Card>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </Card>
+    </motion.div>
   );
 }

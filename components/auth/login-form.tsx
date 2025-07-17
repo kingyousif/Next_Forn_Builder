@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useAuth } from "../context/page";
+import { User, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 
 interface User {
   id: string;
@@ -19,6 +20,7 @@ interface User {
 export function LoginForm() {
   const { globalLoading, checkAuth, login } = useAuth();
   const router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
 
   const checkAuthanticate = async () => {
     // let check = await checkAuth();
@@ -37,136 +39,8 @@ export function LoginForm() {
   });
 
   const url = process.env.NEXT_PUBLIC_API_URL;
-
   const [authError, setAuthError] = useState<string | null>(null);
-  // useEffect(() => {
-  //   // Start with loading true
-  //   setGlobalLoading(true);
 
-  //   // Safely parse user from cookie with error handling
-  //   let user: User | null = null;
-  //   try {
-  //     const userCookie = Cookies.get("user");
-  //     if (userCookie) {
-  //       user = JSON.parse(userCookie);
-  //       // Validate that user has expected properties
-  //       if (!user || typeof user !== "object" || !user.id) {
-  //         console.error("Invalid user data in cookie");
-  //         user = null;
-  //         Cookies.remove("user"); // Remove invalid cookie
-  //         Cookies.remove("token"); // Remove invalid cookie
-  //       }
-  //     }
-  //   } catch (error) {
-  //     console.log("Try Your best");
-  //     Cookies.remove("user"); // Remove invalid cookie
-  //     Cookies.remove("token"); // Remove invalid cookie
-  //   }
-
-  //   // Get token from cookie
-  //   const token = Cookies.get("token") || null;
-
-  //   // If no user or token, immediately stop global loading
-  //   if (!user || !token) {
-  //     setGlobalLoading(false);
-  //     setAuthError("Missing or invalid authentication data");
-  //     return;
-  //   }
-
-  //   // Flag to prevent state updates after component unmount
-  //   let isMounted = true;
-
-  //   // Perform auth check
-  //   const checkAuth = async () => {
-  //     try {
-  //       const res = await axios.post(
-  //         `${url}/api/auth/check-auth`,
-  //         {},
-  //         {
-  //           withCredentials: true,
-  //           headers: {
-  //             Authorization: `Bearer ${token}`,
-  //             "Content-Type": "application/json",
-  //           },
-  //           // Add timeout to prevent hanging requests
-  //           timeout: 10000,
-  //         }
-  //       );
-
-  //       // Only update state if component is still mounted
-  //       if (isMounted) {
-  //         // Validate response structure
-  //         if (!res.data || !res.data.user) {
-  //           setAuthError("Invalid response from server");
-  //           setGlobalLoading(false);
-  //           return;
-  //         }
-
-  //         // If authentication is successful and tokens match
-  //         if (res.data.user.token === token && res.data.user._id === user.id) {
-  //           setGlobalLoading(false);
-  //           router.push("/dashboard");
-  //         } else {
-  //           // If tokens don't match, stop global loading and handle error
-  //           setAuthError("Authentication failed: Invalid credentials");
-  //           setGlobalLoading(false);
-
-  //           // Clear invalid cookies
-  //           Cookies.remove("user");
-  //           Cookies.remove("token");
-  //         }
-  //       }
-  //     } catch (err) {
-  //       // Only update state if component is still mounted
-  //       if (isMounted) {
-  //         console.error("Authentication error:", err);
-
-  //         // Check if it's an axios error with response
-  //         if (axios.isAxiosError(err)) {
-  //           if (err.response) {
-  //             // Handle specific status codes
-  //             if (err.response.status === 500) {
-  //               setAuthError(
-  //                 "Server error occurred. This might be due to invalid authentication data."
-  //               );
-  //             } else if (err.response.status === 401) {
-  //               setAuthError("Authentication failed: Unauthorized");
-  //             } else {
-  //               setAuthError(`Authentication error: ${err.response.status}`);
-  //             }
-  //           } else if (err.request) {
-  //             // Request was made but no response received (timeout, network issue)
-  //             setAuthError("Authentication failed: No response from server");
-  //           } else {
-  //             // Error in setting up the request
-  //             setAuthError("Authentication failed: Request setup error");
-  //           }
-  //         } else {
-  //           // Generic error handling
-  //           setAuthError(
-  //             `Authentication failed: ${
-  //               (err as Error).message || "Unknown error"
-  //             }`
-  //           );
-  //         }
-
-  //         // Stop global loading on error
-  //         setGlobalLoading(false);
-
-  //         // Clear invalid cookies on auth error
-  //         Cookies.remove("user");
-  //         Cookies.remove("token");
-  //       }
-  //     }
-  //   };
-
-  //   checkAuth();
-
-  //   // Cleanup function to prevent state updates after unmount
-  //   return () => {
-  //     isMounted = false;
-  //   };
-  // }, [router, url, setGlobalLoading]);
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -190,7 +64,7 @@ export function LoginForm() {
 
       // Option 1: Use the login function from AuthContext
       const success = await login({
-        name: formData.name,
+        name: formData.name.toLowerCase(),
         password: formData.password,
       });
 
@@ -201,40 +75,6 @@ export function LoginForm() {
       if (!success) {
         toast.error("Login failed");
       }
-
-      /* 
-      // Option 2: If you prefer to keep using your direct API call:
-      const res = await axios.post(`${url}/api/auth/login`, {
-        name: formData.name,
-        password: formData.password,
-      });
-
-      toast.success(res?.data?.message || "Login successful");
-      
-      const user = {
-        id: res.data.user._id,
-        name: res.data.user.name,
-        email: res.data.user.email,
-      };
-      
-      const token = res.data.user.token;
-      
-      // Use the setUser function from AuthContext instead of directly setting cookies
-      setUser(user);
-      
-      // Set cookies with expiration based on rememberMe
-      const expirationDays = formData.rememberMe ? 7 : 1;
-      
-      Cookies.set("user", JSON.stringify(user), {
-        expires: expirationDays,
-      });
-      
-      Cookies.set("token", token, {
-        expires: expirationDays,
-      });
-      
-      router.push("/dashboard");
-      */
     } catch (error: any) {
       console.error("Login error:", error);
       toast.error(
@@ -244,106 +84,174 @@ export function LoginForm() {
       setIsLoading(false);
     }
   };
+
+  const containerVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.6,
+        ease: "easeOut",
+        staggerChildren: 0.1,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 10 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.4, ease: "easeOut" },
+    },
+  };
+
   return (
     <>
       {globalLoading ? (
-        <div className="flex  w-full items-center justify-center">
-          <div className="h-16 w-16 animate-spin rounded-full border-b-2 border-t-2 border-primary"></div>
+        <div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex w-full items-center justify-center p-8"
+        >
+          <div className="relative">
+            <div className="h-16 w-16 animate-spin rounded-full border-4 border-slate-200 dark:border-slate-700"></div>
+            <div className="absolute inset-0 h-16 w-16 animate-spin rounded-full border-4 border-transparent border-t-gradient-to-r from-blue-500 to-purple-600"></div>
+            <div className="absolute inset-2 h-12 w-12 animate-pulse rounded-full bg-gradient-to-r from-blue-500/20 to-purple-600/20"></div>
+          </div>
         </div>
       ) : (
-        <div className="grid gap-6">
-          <form onSubmit={handleSubmit}>
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  tabIndex={1}
-                  id="name"
-                  name="name"
-                  placeholder="name@example.com"
-                  type="name"
-                  autoCapitalize="none"
-                  autoComplete="name"
-                  autoCorrect="off"
-                  disabled={isLoading}
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                />
+        <div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="w-full max-w-md mx-auto"
+        >
+          <div
+            variants={itemVariants}
+            className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-slate-900/80 dark:via-slate-800/60 dark:to-slate-700/40 backdrop-blur-xl border border-white/20 dark:border-slate-700/50 shadow-2xl"
+          >
+            {/* Decorative gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-pink-500/5 dark:from-blue-400/10 dark:via-purple-400/10 dark:to-pink-400/10"></div>
+
+            <div className="relative p-8 space-y-6">
+              <div variants={itemVariants} className="text-center space-y-2">
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
+                  Welcome Back
+                </h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Sign in to your account to continue
+                </p>
               </div>
-              <div className="grid gap-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                  <Link
-                    href="/reset-password"
-                    className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
-                <Input
-                  tabIndex={2}
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoCapitalize="none"
-                  autoComplete="current-password"
-                  disabled={isLoading}
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="remember"
-                  checked={formData.rememberMe}
-                  onCheckedChange={handleCheckboxChange}
-                />
-                <Label
-                  htmlFor="remember"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  Remember me
-                </Label>
-              </div>
-              <Button
-                disabled={isLoading}
-                type="submit"
-                className="w-full"
-                tabIndex={3}
+
+              <form
+                onSubmit={handleSubmit}
+                variants={itemVariants}
+                className="space-y-5"
               >
-                {isLoading ? (
-                  <div className="flex items-center justify-center">
-                    <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
-                    <span className="ml-2">Signing in...</span>
+                <div variants={itemVariants} className="space-y-2">
+                  <Label
+                    htmlFor="name"
+                    className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2"
+                  >
+                    <User className="h-4 w-4" />
+                    Username
+                  </Label>
+                  <div className="relative group">
+                    <Input
+                      tabIndex={1}
+                      id="name"
+                      name="name"
+                      placeholder="Enter your username"
+                      type="text"
+                      autoCapitalize="none"
+                      autoComplete="username"
+                      autoCorrect="off"
+                      disabled={isLoading}
+                      value={formData.name}
+                      onChange={handleChange}
+                      required
+                      className="h-12 pl-4 pr-4 bg-white/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-200 group-hover:border-slate-300 dark:group-hover:border-slate-600"
+                    />
+                    <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/0 via-purple-500/0 to-pink-500/0 group-focus-within:from-blue-500/5 group-focus-within:via-purple-500/5 group-focus-within:to-pink-500/5 transition-all duration-300 pointer-events-none"></div>
                   </div>
-                ) : (
-                  "Sign In"
-                )}
-              </Button>
+                </div>
+
+                <div variants={itemVariants} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="password"
+                      className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2"
+                    >
+                      <Lock className="h-4 w-4" />
+                      Password
+                    </Label>
+                    <Link
+                      href="/reset-password"
+                      className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors duration-200 hover:underline underline-offset-2"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
+                  <div className="relative group">
+                    <Input
+                      tabIndex={2}
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      autoCapitalize="none"
+                      autoComplete="current-password"
+                      disabled={isLoading}
+                      value={formData.password}
+                      onChange={handleChange}
+                      required
+                      className="h-12 pl-4 pr-12 bg-white/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-200 group-hover:border-slate-300 dark:group-hover:border-slate-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors duration-200 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                    <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/0 via-purple-500/0 to-pink-500/0 group-focus-within:from-blue-500/5 group-focus-within:via-purple-500/5 group-focus-within:to-pink-500/5 transition-all duration-300 pointer-events-none"></div>
+                  </div>
+                </div>
+
+                <div variants={itemVariants}>
+                  <Button
+                    disabled={isLoading}
+                    type="submit"
+                    className="w-full h-12 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-700 hover:from-blue-700 hover:via-purple-700 hover:to-blue-800 dark:from-blue-500 dark:via-purple-500 dark:to-blue-600 dark:hover:from-blue-600 dark:hover:via-purple-600 dark:hover:to-blue-700 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    tabIndex={3}
+                  >
+                    {isLoading ? (
+                      <div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="flex items-center justify-center gap-2"
+                      >
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Signing in...</span>
+                      </div>
+                    ) : (
+                      <span
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="flex items-center justify-center gap-2"
+                      >
+                        Sign In
+                      </span>
+                    )}
+                  </Button>
+                </div>
+              </form>
             </div>
-          </form>
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
-                Or continue with
-              </span>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <Button variant="outline" type="button" disabled={isLoading}>
-              Google
-            </Button>
-            <Button variant="outline" type="button" disabled={isLoading}>
-              GitHub
-            </Button>
-            <Button variant="outline" type="button" disabled={isLoading}>
-              Twitter
-            </Button>
           </div>
         </div>
       )}
