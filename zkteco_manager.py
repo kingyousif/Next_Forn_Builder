@@ -416,9 +416,9 @@ class ZKTecoManager:
                 # Fix timezone adjustment using timedelta to avoid hour overflow
                 timestamp = attendance.timestamp
                 uid = attendance.uid
-                if timestamp:
+                
                     # Add 3 hours using timedelta to handle day/hour overflow properly
-                    timestamp = timestamp + timedelta(hours=3)
+                    
                 
                 attendance_data.append({
                     "uid": uid,

@@ -225,6 +225,39 @@ export default function AttendanceTracking() {
     setIsEditModalOpen(false);
   };
 
+  // Add row background color logic based on multiple check-ins/check-outs
+  const getRowBackgroundColor = useCallback((record, allData) => {
+    const recordDate = format(new Date(record.timestamp), "yyyy-MM-dd");
+    const employeeId = record.employee?._id || record.employee?.userId;
+
+    if (!employeeId) return "";
+
+    // Get all records for the same employee on the same date
+    const sameDayRecords = allData.filter((r) => {
+      const rDate = format(new Date(r.timestamp), "yyyy-MM-dd");
+      const rEmployeeId = r.employee?._id || r.employee?.userId;
+      return rDate === recordDate && rEmployeeId === employeeId;
+    });
+
+    // Count check-ins and check-outs
+    const checkIns = sameDayRecords.filter(
+      (r) => r.status === "Check-in"
+    ).length;
+    const checkOuts = sameDayRecords.filter(
+      (r) => r.status === "Check-out"
+    ).length;
+
+    // Apply conditional styling
+    if (checkIns > 1 && record.status === "Check-in") {
+      return "bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-800/40";
+    }
+    if (checkOuts > 1 && record.status === "Check-out") {
+      return "bg-yellow-100 dark:bg-yellow-900/30 hover:bg-yellow-200 dark:hover:bg-yellow-800/40";
+    }
+
+    return "hover:bg-blue-50 dark:hover:bg-slate-700";
+  }, []);
+
   if (isLoading) return <LoadingSpinner />;
   if (error) return <ErrorDisplay error={error} onRetry={fetchAllData} />;
 
@@ -706,7 +739,10 @@ export default function AttendanceTracking() {
                       paginatedData.map((record, index) => (
                         <TableRow
                           key={`${record._id}-${index}`}
-                          className="hover:bg-blue-50 dark:hover:bg-slate-700 transition-all duration-300 border-b border-gray-100 dark:border-slate-600"
+                          className={`${getRowBackgroundColor(
+                            record,
+                            filteredData
+                          )} transition-all duration-300 border-b border-gray-100 dark:border-slate-600`}
                         >
                           <TableCell className="py-6 px-6">
                             <div className="flex items-center space-x-4">

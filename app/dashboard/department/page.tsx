@@ -72,7 +72,7 @@ import {
 import { toast } from "sonner";
 import { formatDate } from "date-fns";
 import { useAuth } from "@/components/context/page";
-import { motion, AnimatePresence } from "framer-motion";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -97,6 +97,7 @@ const DEPARTMENTS = {
     "Pharmacy",
     "Security",
     "Reception and Scrter",
+    "IT",
     "Emergency",
     "Radiology",
     "Physiotherapy",
@@ -123,6 +124,7 @@ const DEPARTMENTS = {
     "Pharmacy",
     "Security",
     "Reception and Scrter",
+    "IT",
     "Emergency",
     "Radiology",
     "Physiotherapy",
@@ -234,8 +236,6 @@ const UserManagementPage = () => {
         return toast.error("Please fill in all fields");
       }
 
-      
-
       await axios.post<User>(`${url}user/create`, currentUser).then((res) => {
         fetchUsers();
         setUsers([...users, { ...res.data, ...currentUser } as User]);
@@ -310,7 +310,6 @@ const UserManagementPage = () => {
 
   // Open dialog for editing
   const openEditDialog = (user: User) => {
-
     setCurrentUser(user);
     setIsDialogOpen(true);
   };
@@ -468,64 +467,53 @@ const UserManagementPage = () => {
       id: "actions",
       header: () => <div className="text-center">Actions</div>,
       cell: ({ row }) => (
-        <div className="flex justify-center">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+        <div className="flex justify-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => openEditDialog(row.original)}
+            className="h-8 flex items-center gap-1 hover:bg-slate-50 dark:hover:bg-slate-800"
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 hover:bg-slate-50 dark:hover:bg-slate-800"
+                className="h-8 flex items-center gap-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
               >
-                <MoreHorizontal className="h-4 w-4" />
+                <Trash2 className="h-4 w-4" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem
-                onClick={() => openEditDialog(row.original)}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Edit className="h-4 w-4" />
-                Edit User
-              </DropdownMenuItem>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <DropdownMenuItem
-                    onSelect={(e) => e.preventDefault()}
-                    className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-600"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete User
-                  </DropdownMenuItem>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will permanently delete the user. This action cannot
-                      be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      className="bg-red-600 hover:bg-red-700 text-white"
-                      onClick={() => handleDeleteUser(row.original._id)}
-                      disabled={isDeleting}
-                    >
-                      {isDeleting ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
-                          Deleting
-                        </>
-                      ) : (
-                        "Delete"
-                      )}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete the user. This action cannot be
+                  undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  onClick={() => handleDeleteUser(row.original._id)}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deleting
+                    </>
+                  ) : (
+                    "Delete"
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       ),
     },
@@ -592,11 +580,7 @@ const UserManagementPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50/50 via-white to-slate-100/50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-800">
       <div className="relative p-6 space-y-6">
         {/* Header Section */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative"
-        >
+        <div className="relative">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="space-y-2">
               <div className="flex items-center gap-3">
@@ -814,15 +798,10 @@ const UserManagementPage = () => {
               </Dialog>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Stats Cards */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4"
-        >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card className="bg-gradient-to-r from-blue-500/10 to-blue-600/10 dark:from-blue-600/20 dark:to-blue-700/20 border-blue-200/50 dark:border-blue-700/50 backdrop-blur-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -902,14 +881,10 @@ const UserManagementPage = () => {
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
 
         {/* Main Content */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
+        <div>
           <Card className="bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50 shadow-xl">
             <CardContent className="p-0">
               {loading ? (
@@ -953,30 +928,24 @@ const UserManagementPage = () => {
                         ))}
                       </TableHeader>
                       <TableBody>
-                        <AnimatePresence>
-                          {table.getRowModel().rows.map((row, index) => (
-                            <motion.tr
-                              key={row.id}
-                              initial={{ opacity: 0, y: 20 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -20 }}
-                              transition={{ delay: index * 0.05 }}
-                              className="border-slate-200/30 dark:border-slate-700/30 hover:bg-gradient-to-r hover:from-slate-50/30 hover:to-slate-100/30 dark:hover:from-slate-800/30 dark:hover:to-slate-700/30 transition-all duration-200"
-                            >
-                              {row.getVisibleCells().map((cell) => (
-                                <TableCell
-                                  key={cell.id}
-                                  className="text-center py-4"
-                                >
-                                  {flexRender(
-                                    cell.column.columnDef.cell,
-                                    cell.getContext()
-                                  )}
-                                </TableCell>
-                              ))}
-                            </motion.tr>
-                          ))}
-                        </AnimatePresence>
+                        {table.getRowModel().rows.map((row, index) => (
+                          <tr
+                            key={row.id}
+                            className="border-slate-200/30 dark:border-slate-700/30 hover:bg-gradient-to-r hover:from-slate-50/30 hover:to-slate-100/30 dark:hover:from-slate-800/30 dark:hover:to-slate-700/30 transition-all duration-200"
+                          >
+                            {row.getVisibleCells().map((cell) => (
+                              <TableCell
+                                key={cell.id}
+                                className="text-center py-4"
+                              >
+                                {flexRender(
+                                  cell.column.columnDef.cell,
+                                  cell.getContext()
+                                )}
+                              </TableCell>
+                            ))}
+                          </tr>
+                        ))}
                       </TableBody>
                     </Table>
                   </div>
@@ -1044,7 +1013,7 @@ const UserManagementPage = () => {
               )}
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

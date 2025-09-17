@@ -64,7 +64,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/components/context/page";
-import { motion, AnimatePresence } from "framer-motion";
 
 // Type definitions
 type User = {
@@ -339,7 +338,7 @@ const EmployeeManagementPage = () => {
   };
 
   const getAssignedEmployee = (userId: string) => {
-    const assignment = assignments.find((a) => a.userId._id === userId);
+    const assignment = assignments.find((a) => a.userId?._id === userId);
     if (assignment) {
       return employees.find((emp) => emp._id === assignment.employeeId._id);
     }
@@ -480,7 +479,8 @@ const EmployeeManagementPage = () => {
     const totalEmployees = employees.length;
     const assignedEmployees = assignments.length;
     const unassignedEmployees = totalEmployees - assignedEmployees;
-    const assignedUsers = new Set(assignments.map((a) => a.userId._id)).size;
+    const assignedUsers = new Set(assignments.map((a) => a.userId?._id || ""))
+      .size;
     const unassignedUsers = totalUsers - assignedUsers;
 
     return {
@@ -522,11 +522,7 @@ const EmployeeManagementPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50/50 via-white to-slate-100/50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-800">
       <div className="relative p-4 lg:p-6 space-y-6">
         {/* Header Section */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative"
-        >
+        <div className="relative">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="space-y-2">
               <div className="flex items-center gap-3">
@@ -560,15 +556,10 @@ const EmployeeManagementPage = () => {
               </Button>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Statistics Cards */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 lg:gap-4"
-        >
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 lg:gap-4">
           <Card className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs lg:text-sm font-medium text-muted-foreground">
@@ -646,15 +637,10 @@ const EmployeeManagementPage = () => {
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
 
         {/* Main Table Filters */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="flex flex-col sm:flex-row gap-4"
-        >
+        <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -687,14 +673,10 @@ const EmployeeManagementPage = () => {
               <SelectItem value="Unassigned">Unassigned</SelectItem>
             </SelectContent>
           </Select>
-        </motion.div>
+        </div>
 
         {/* Main Users Table */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
+        <div>
           <Card className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -759,404 +741,395 @@ const EmployeeManagementPage = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    <AnimatePresence>
-                      {currentUsers.map((user, index) => {
-                        const assignedEmployee = getAssignedEmployee(
-                          user._id || user.id.toString()
-                        );
-                        const assignment = assignments.find(
-                          (a) =>
-                            a.userId._id === (user._id || user.id.toString())
-                        );
-                        const RoleIcon = getRoleIcon(user.role);
+                    {currentUsers.map((user, index) => {
+                      const assignedEmployee = getAssignedEmployee(
+                        user._id || user.id.toString()
+                      );
+                      const assignment = assignments.find(
+                        (a) =>
+                          a.userId?._id === (user._id || user.id.toString())
+                      );
+                      const RoleIcon = getRoleIcon(user.role);
 
-                        return (
-                          <motion.tr
-                            key={user._id || user.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -20 }}
-                            transition={{ delay: index * 0.05 }}
-                            className="border-slate-200/50 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors"
-                          >
-                            <TableCell className="font-medium">
-                              <div className="flex items-center gap-3">
-                                <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700 flex items-center justify-center text-white text-sm font-medium">
-                                  {user.fullName.charAt(0).toUpperCase()}
-                                </div>
-                                <span>{user.fullName}</span>
+                      return (
+                        <tr
+                          key={user._id || user.id}
+                          className="border-slate-200/50 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors"
+                        >
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-3">
+                              <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700 flex items-center justify-center text-white text-sm font-medium">
+                                {user.fullName.charAt(0).toUpperCase()}
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              <span className="text-muted-foreground">
-                                {user.name}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant={getRoleBadgeVariant(user.role)}
-                                className="flex items-center gap-1 w-fit"
-                              >
-                                <RoleIcon className="h-3 w-3" />
-                                {user.role}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {user.department ? (
-                                <div className="flex items-center gap-2">
-                                  <Building2 className="h-4 w-4 text-muted-foreground" />
-                                  <span>{user.department}</span>
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {assignedEmployee ? (
-                                <div className="flex items-center gap-2">
-                                  <CheckCircle className="h-4 w-4 text-green-600" />
-                                  <span className="font-medium">
-                                    {assignedEmployee.name}
-                                  </span>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-2">
-                                  <AlertCircle className="h-4 w-4 text-orange-500" />
-                                  <span className="text-muted-foreground">
-                                    Not assigned
-                                  </span>
-                                </div>
-                              )}
-                            </TableCell>
-                            <TableCell>
+                              <span>{user.fullName}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-muted-foreground">
+                              {user.name}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={getRoleBadgeVariant(user.role)}
+                              className="flex items-center gap-1 w-fit"
+                            >
+                              <RoleIcon className="h-3 w-3" />
+                              {user.role}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {user.department ? (
                               <div className="flex items-center gap-2">
-                                {assignedEmployee ? (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                      assignment &&
-                                      openUnassignAlert(assignment)
+                                <Building2 className="h-4 w-4 text-muted-foreground" />
+                                <span>{user.department}</span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {assignedEmployee ? (
+                              <div className="flex items-center gap-2">
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                <span className="font-medium">
+                                  {assignedEmployee.name}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <AlertCircle className="h-4 w-4 text-orange-500" />
+                                <span className="text-muted-foreground">
+                                  Not assigned
+                                </span>
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {assignedEmployee ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    assignment && openUnassignAlert(assignment)
+                                  }
+                                  disabled={
+                                    unassigningEmployeeId ===
+                                    assignedEmployee._id
+                                  }
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 border-red-200 dark:border-red-800"
+                                >
+                                  {unassigningEmployeeId ===
+                                  assignedEmployee._id ? (
+                                    <>
+                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                      Unassigning...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Unlink className="mr-1 h-3 w-3" />
+                                      Unassign
+                                    </>
+                                  )}
+                                </Button>
+                              ) : (
+                                <Dialog
+                                  open={
+                                    isDialogOpen &&
+                                    selectedUser?._id === user._id
+                                  }
+                                  onOpenChange={(open) => {
+                                    setIsDialogOpen(open);
+                                    if (!open) {
+                                      setSelectedUser(null);
+                                      setSelectedEmployee("");
+                                      setEmployeeSearchTerm("");
                                     }
-                                    disabled={
-                                      unassigningEmployeeId ===
-                                      assignedEmployee._id
-                                    }
-                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 border-red-200 dark:border-red-800"
-                                  >
-                                    {unassigningEmployeeId ===
-                                    assignedEmployee._id ? (
-                                      <>
-                                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                        Unassigning...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Unlink className="mr-1 h-3 w-3" />
-                                        Unassign
-                                      </>
-                                    )}
-                                  </Button>
-                                ) : (
-                                  <Dialog
-                                    open={
-                                      isDialogOpen &&
-                                      selectedUser?._id === user._id
-                                    }
-                                    onOpenChange={(open) => {
-                                      setIsDialogOpen(open);
-                                      if (!open) {
-                                        setSelectedUser(null);
-                                        setSelectedEmployee("");
-                                        setEmployeeSearchTerm("");
-                                      }
-                                    }}
-                                  >
-                                    <DialogTrigger asChild>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                          setSelectedUser(user);
-                                          setIsDialogOpen(true);
-                                        }}
-                                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/20 border-blue-200 dark:border-blue-800"
-                                      >
-                                        <Link className="mr-1 h-3 w-3" />
-                                        Assign
-                                      </Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="sm:max-w-md">
-                                      <DialogHeader>
-                                        <DialogTitle className="flex items-center gap-2">
-                                          <UserPlus className="h-5 w-5 text-blue-600" />
-                                          Assign Employee to {user.fullName}
-                                        </DialogTitle>
-                                      </DialogHeader>
-                                      <div className="space-y-6">
-                                        <div className="space-y-3">
-                                          <label className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                                            <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                                            Select Employee
-                                          </label>
+                                  }}
+                                >
+                                  <DialogTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setSelectedUser(user);
+                                        setIsDialogOpen(true);
+                                      }}
+                                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/20 border-blue-200 dark:border-blue-800"
+                                    >
+                                      <Link className="mr-1 h-3 w-3" />
+                                      Assign
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="sm:max-w-md">
+                                    <DialogHeader>
+                                      <DialogTitle className="flex items-center gap-2">
+                                        <UserPlus className="h-5 w-5 text-blue-600" />
+                                        Assign Employee to {user.fullName}
+                                      </DialogTitle>
+                                    </DialogHeader>
+                                    <div className="space-y-6">
+                                      <div className="space-y-3">
+                                        <label className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                          <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                          Select Employee
+                                        </label>
 
-                                          {/* Custom Searchable Select */}
-                                          <div className="relative">
-                                            <div
-                                              className="w-full min-h-[48px] p-3 bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl shadow-sm hover:shadow-md focus-within:shadow-lg focus-within:border-blue-400 dark:focus-within:border-blue-500 transition-all duration-300 cursor-pointer"
-                                              onClick={() =>
-                                                setIsEmployeeDropdownOpen(
-                                                  !isEmployeeDropdownOpen
-                                                )
-                                              }
-                                            >
-                                              <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3 flex-1">
-                                                  <Search className="h-5 w-5 text-slate-400 dark:text-slate-500" />
-                                                  {selectedEmployee ? (
-                                                    <div className="flex items-center gap-3">
-                                                      <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
-                                                        {availableEmployees
-                                                          .find(
+                                        {/* Custom Searchable Select */}
+                                        <div className="relative">
+                                          <div
+                                            className="w-full min-h-[48px] p-3 bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl shadow-sm hover:shadow-md focus-within:shadow-lg focus-within:border-blue-400 dark:focus-within:border-blue-500 transition-all duration-300 cursor-pointer"
+                                            onClick={() =>
+                                              setIsEmployeeDropdownOpen(
+                                                !isEmployeeDropdownOpen
+                                              )
+                                            }
+                                          >
+                                            <div className="flex items-center justify-between">
+                                              <div className="flex items-center gap-3 flex-1">
+                                                <Search className="h-5 w-5 text-slate-400 dark:text-slate-500" />
+                                                {selectedEmployee ? (
+                                                  <div className="flex items-center gap-3">
+                                                    <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
+                                                      {availableEmployees
+                                                        .find(
+                                                          (emp) =>
+                                                            emp._id ===
+                                                            selectedEmployee
+                                                        )
+                                                        ?.name.charAt(0)
+                                                        .toUpperCase()}
+                                                    </div>
+                                                    <div>
+                                                      <span className="font-medium text-slate-900 dark:text-slate-100">
+                                                        {
+                                                          availableEmployees.find(
                                                             (emp) =>
                                                               emp._id ===
                                                               selectedEmployee
-                                                          )
-                                                          ?.name.charAt(0)
-                                                          .toUpperCase()}
-                                                      </div>
-                                                      <div>
-                                                        <span className="font-medium text-slate-900 dark:text-slate-100">
+                                                          )?.name
+                                                        }
+                                                      </span>
+                                                      {availableEmployees.find(
+                                                        (emp) =>
+                                                          emp._id ===
+                                                          selectedEmployee
+                                                      )?.department && (
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400">
                                                           {
                                                             availableEmployees.find(
                                                               (emp) =>
                                                                 emp._id ===
                                                                 selectedEmployee
-                                                            )?.name
+                                                            )?.department
                                                           }
-                                                        </span>
-                                                        {availableEmployees.find(
-                                                          (emp) =>
-                                                            emp._id ===
-                                                            selectedEmployee
-                                                        )?.department && (
-                                                          <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                            {
-                                                              availableEmployees.find(
-                                                                (emp) =>
-                                                                  emp._id ===
-                                                                  selectedEmployee
-                                                              )?.department
-                                                            }
-                                                          </p>
-                                                        )}
-                                                      </div>
-                                                    </div>
-                                                  ) : (
-                                                    <span className="text-slate-500 dark:text-slate-400">
-                                                      Search and select an
-                                                      employee...
-                                                    </span>
-                                                  )}
-                                                </div>
-                                                <ChevronDown
-                                                  className={`h-5 w-5 text-slate-400 transition-transform duration-200 ${
-                                                    isEmployeeDropdownOpen
-                                                      ? "rotate-180"
-                                                      : ""
-                                                  }`}
-                                                />
-                                              </div>
-                                            </div>
-
-                                            {/* Dropdown Content */}
-                                            {isEmployeeDropdownOpen && (
-                                              <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-xl z-50 max-h-80 overflow-hidden">
-                                                {/* Search Input */}
-                                                <div className="p-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/50">
-                                                  <div className="relative">
-                                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                                    <input
-                                                      type="text"
-                                                      placeholder="Type to search employees..."
-                                                      value={employeeSearchTerm}
-                                                      onChange={(e) =>
-                                                        setEmployeeSearchTerm(
-                                                          e.target.value
-                                                        )
-                                                      }
-                                                      className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                                                      autoFocus
-                                                    />
-                                                  </div>
-                                                </div>
-
-                                                {/* Employee List */}
-                                                <div className="max-h-60 overflow-y-auto">
-                                                  {availableEmployees.length ===
-                                                  0 ? (
-                                                    <div className="flex flex-col items-center justify-center py-12 px-6">
-                                                      <div className="h-16 w-16 rounded-full bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center mb-4">
-                                                        <Users className="h-8 w-8 text-slate-400" />
-                                                      </div>
-                                                      <h3 className="font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                                        {employeeSearchTerm
-                                                          ? "No matching employees"
-                                                          : "No available employees"}
-                                                      </h3>
-                                                      <p className="text-sm text-slate-500 dark:text-slate-400 text-center">
-                                                        {employeeSearchTerm
-                                                          ? "Try adjusting your search terms or check spelling"
-                                                          : "All employees are currently assigned to users"}
-                                                      </p>
-                                                    </div>
-                                                  ) : (
-                                                    <div className="p-2">
-                                                      {availableEmployees.map(
-                                                        (employee, index) => (
-                                                          <div
-                                                            key={employee._id}
-                                                            onClick={() => {
-                                                              setSelectedEmployee(
-                                                                employee._id
-                                                              );
-                                                              setIsEmployeeDropdownOpen(
-                                                                false
-                                                              );
-                                                              setEmployeeSearchTerm(
-                                                                ""
-                                                              );
-                                                            }}
-                                                            className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200 hover:bg-blue-50 dark:hover:bg-blue-950/30 ${
-                                                              selectedEmployee ===
-                                                              employee._id
-                                                                ? "bg-blue-100 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800"
-                                                                : "hover:shadow-sm"
-                                                            }`}
-                                                          >
-                                                            <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700 flex items-center justify-center text-white font-medium text-sm flex-shrink-0">
-                                                              {employee.name
-                                                                .charAt(0)
-                                                                .toUpperCase()}
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                              <div className="flex items-center gap-2 mb-1">
-                                                                <span className="font-medium text-slate-900 dark:text-slate-100 truncate">
-                                                                  {
-                                                                    employee.name
-                                                                  }
-                                                                </span>
-                                                                {selectedEmployee ===
-                                                                  employee._id && (
-                                                                  <CheckCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                                                                )}
-                                                              </div>
-                                                              <div className="flex items-center gap-2 text-xs">
-                                                                {employee.userId && (
-                                                                  <span className="text-slate-500 dark:text-slate-400">
-                                                                    ID:{" "}
-                                                                    {
-                                                                      employee.userId
-                                                                    }
-                                                                  </span>
-                                                                )}
-                                                                {employee.department && (
-                                                                  <Badge
-                                                                    variant="outline"
-                                                                    className="text-xs bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-600"
-                                                                  >
-                                                                    <Building2 className="h-3 w-3 mr-1" />
-                                                                    {
-                                                                      employee.department
-                                                                    }
-                                                                  </Badge>
-                                                                )}
-                                                              </div>
-                                                            </div>
-                                                          </div>
-                                                        )
+                                                        </p>
                                                       )}
                                                     </div>
-                                                  )}
-                                                </div>
+                                                  </div>
+                                                ) : (
+                                                  <span className="text-slate-500 dark:text-slate-400">
+                                                    Search and select an
+                                                    employee...
+                                                  </span>
+                                                )}
                                               </div>
-                                            )}
+                                              <ChevronDown
+                                                className={`h-5 w-5 text-slate-400 transition-transform duration-200 ${
+                                                  isEmployeeDropdownOpen
+                                                    ? "rotate-180"
+                                                    : ""
+                                                }`}
+                                              />
+                                            </div>
                                           </div>
 
-                                          {/* Selection Confirmation */}
-                                          {selectedEmployee && (
-                                            <div className="p-4 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/30 dark:to-blue-950/30 rounded-xl border border-green-200/60 dark:border-green-800/60">
-                                              <div className="flex items-center gap-3">
-                                                <div className="h-8 w-8 rounded-full bg-green-500 flex items-center justify-center">
-                                                  <CheckCircle className="h-5 w-5 text-white" />
+                                          {/* Dropdown Content */}
+                                          {isEmployeeDropdownOpen && (
+                                            <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-xl z-50 max-h-80 overflow-hidden">
+                                              {/* Search Input */}
+                                              <div className="p-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/50">
+                                                <div className="relative">
+                                                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                                  <input
+                                                    type="text"
+                                                    placeholder="Type to search employees..."
+                                                    value={employeeSearchTerm}
+                                                    onChange={(e) =>
+                                                      setEmployeeSearchTerm(
+                                                        e.target.value
+                                                      )
+                                                    }
+                                                    className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                                    autoFocus
+                                                  />
                                                 </div>
-                                                <div>
-                                                  <p className="font-medium text-green-800 dark:text-green-200">
-                                                    Employee Selected
-                                                  </p>
-                                                  <p className="text-sm text-green-600 dark:text-green-300">
-                                                    {
-                                                      availableEmployees.find(
-                                                        (emp) =>
-                                                          emp._id ===
-                                                          selectedEmployee
-                                                      )?.name
-                                                    }{" "}
-                                                    is ready to be assigned
-                                                  </p>
-                                                </div>
+                                              </div>
+
+                                              {/* Employee List */}
+                                              <div className="max-h-60 overflow-y-auto">
+                                                {availableEmployees.length ===
+                                                0 ? (
+                                                  <div className="flex flex-col items-center justify-center py-12 px-6">
+                                                    <div className="h-16 w-16 rounded-full bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center mb-4">
+                                                      <Users className="h-8 w-8 text-slate-400" />
+                                                    </div>
+                                                    <h3 className="font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                                      {employeeSearchTerm
+                                                        ? "No matching employees"
+                                                        : "No available employees"}
+                                                    </h3>
+                                                    <p className="text-sm text-slate-500 dark:text-slate-400 text-center">
+                                                      {employeeSearchTerm
+                                                        ? "Try adjusting your search terms or check spelling"
+                                                        : "All employees are currently assigned to users"}
+                                                    </p>
+                                                  </div>
+                                                ) : (
+                                                  <div className="p-2">
+                                                    {availableEmployees.map(
+                                                      (employee, index) => (
+                                                        <div
+                                                          key={employee._id}
+                                                          onClick={() => {
+                                                            setSelectedEmployee(
+                                                              employee._id
+                                                            );
+                                                            setIsEmployeeDropdownOpen(
+                                                              false
+                                                            );
+                                                            setEmployeeSearchTerm(
+                                                              ""
+                                                            );
+                                                          }}
+                                                          className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200 hover:bg-blue-50 dark:hover:bg-blue-950/30 ${
+                                                            selectedEmployee ===
+                                                            employee._id
+                                                              ? "bg-blue-100 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800"
+                                                              : "hover:shadow-sm"
+                                                          }`}
+                                                        >
+                                                          <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700 flex items-center justify-center text-white font-medium text-sm flex-shrink-0">
+                                                            {employee.name
+                                                              .charAt(0)
+                                                              .toUpperCase()}
+                                                          </div>
+                                                          <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                              <span className="font-medium text-slate-900 dark:text-slate-100 truncate">
+                                                                {employee.name}
+                                                              </span>
+                                                              {selectedEmployee ===
+                                                                employee._id && (
+                                                                <CheckCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                                                              )}
+                                                            </div>
+                                                            <div className="flex items-center gap-2 text-xs">
+                                                              {employee.userId && (
+                                                                <span className="text-slate-500 dark:text-slate-400">
+                                                                  ID:{" "}
+                                                                  {
+                                                                    employee.userId
+                                                                  }
+                                                                </span>
+                                                              )}
+                                                              {employee.department && (
+                                                                <Badge
+                                                                  variant="outline"
+                                                                  className="text-xs bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-600"
+                                                                >
+                                                                  <Building2 className="h-3 w-3 mr-1" />
+                                                                  {
+                                                                    employee.department
+                                                                  }
+                                                                </Badge>
+                                                              )}
+                                                            </div>
+                                                          </div>
+                                                        </div>
+                                                      )
+                                                    )}
+                                                  </div>
+                                                )}
                                               </div>
                                             </div>
                                           )}
                                         </div>
 
-                                        {/* Action Buttons */}
-                                        <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-slate-200/60 dark:border-slate-700/60">
-                                          <Button
-                                            variant="outline"
-                                            onClick={() => {
-                                              setIsDialogOpen(false);
-                                              setSelectedUser(null);
-                                              setSelectedEmployee("");
-                                              setEmployeeSearchTerm("");
-                                              setIsEmployeeDropdownOpen(false);
-                                            }}
-                                            disabled={isAssigning}
-                                            className="w-full sm:w-auto bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200"
-                                          >
-                                            <X className="mr-2 h-4 w-4" />
-                                            Cancel
-                                          </Button>
-                                          <Button
-                                            onClick={handleAssignEmployee}
-                                            disabled={
-                                              !selectedEmployee || isAssigning
-                                            }
-                                            className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                                          >
-                                            {isAssigning ? (
-                                              <>
-                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                Assigning...
-                                              </>
-                                            ) : (
-                                              <>
-                                                <Link className="mr-2 h-4 w-4" />
-                                                Assign Employee
-                                              </>
-                                            )}
-                                          </Button>
-                                        </div>
+                                        {/* Selection Confirmation */}
+                                        {selectedEmployee && (
+                                          <div className="p-4 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/30 dark:to-blue-950/30 rounded-xl border border-green-200/60 dark:border-green-800/60">
+                                            <div className="flex items-center gap-3">
+                                              <div className="h-8 w-8 rounded-full bg-green-500 flex items-center justify-center">
+                                                <CheckCircle className="h-5 w-5 text-white" />
+                                              </div>
+                                              <div>
+                                                <p className="font-medium text-green-800 dark:text-green-200">
+                                                  Employee Selected
+                                                </p>
+                                                <p className="text-sm text-green-600 dark:text-green-300">
+                                                  {
+                                                    availableEmployees.find(
+                                                      (emp) =>
+                                                        emp._id ===
+                                                        selectedEmployee
+                                                    )?.name
+                                                  }{" "}
+                                                  is ready to be assigned
+                                                </p>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )}
                                       </div>
-                                    </DialogContent>
-                                  </Dialog>
-                                )}
-                              </div>
-                            </TableCell>
-                          </motion.tr>
-                        );
-                      })}
-                    </AnimatePresence>
+
+                                      {/* Action Buttons */}
+                                      <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-slate-200/60 dark:border-slate-700/60">
+                                        <Button
+                                          variant="outline"
+                                          onClick={() => {
+                                            setIsDialogOpen(false);
+                                            setSelectedUser(null);
+                                            setSelectedEmployee("");
+                                            setEmployeeSearchTerm("");
+                                            setIsEmployeeDropdownOpen(false);
+                                          }}
+                                          disabled={isAssigning}
+                                          className="w-full sm:w-auto bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200"
+                                        >
+                                          <X className="mr-2 h-4 w-4" />
+                                          Cancel
+                                        </Button>
+                                        <Button
+                                          onClick={handleAssignEmployee}
+                                          disabled={
+                                            !selectedEmployee || isAssigning
+                                          }
+                                          className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                          {isAssigning ? (
+                                            <>
+                                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                              Assigning...
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Link className="mr-2 h-4 w-4" />
+                                              Assign Employee
+                                            </>
+                                          )}
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+                              )}
+                            </div>
+                          </TableCell>
+                        </tr>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -1233,7 +1206,7 @@ const EmployeeManagementPage = () => {
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
 
         {/* Unassign Confirmation Alert Dialog */}
         <AlertDialog

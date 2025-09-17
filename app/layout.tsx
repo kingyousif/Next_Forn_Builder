@@ -12,14 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Home,
-  RefreshCw,
-  Clock,
-  AlertTriangle,
-  Shield,
-  Calendar,
-} from "lucide-react";
+import { RefreshCw, AlertTriangle, Shield, Calendar } from "lucide-react";
 import { decryptData } from "@/utils/encryption";
 
 export const metadata: Metadata = {

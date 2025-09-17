@@ -280,6 +280,7 @@ export default function Page() {
       formInputs["Name"] === ""
     ) {
       toast.error("Please fill in all fields");
+      setSubmitting(false);
       return;
     }
     if (!validateForm()) {
@@ -287,6 +288,7 @@ export default function Page() {
       if (firstErrorElement) {
         firstErrorElement.scrollIntoView({ behavior: "smooth" });
       }
+      setSubmitting(false);
       return;
     }
 
@@ -435,10 +437,11 @@ export default function Page() {
         const options = Array.from(
           new Set(
             [
-              ...(element.options || []),
+              // ...(element.options || []),
               ...users.map((user) => ({
                 value: user.name,
                 label: user.fullName,
+                department: user.department,
               })),
             ].map(JSON.stringify)
           )
@@ -486,8 +489,8 @@ export default function Page() {
                     <ChevronsUpDown className="ml-2 h-5 w-5 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-full min-w-[200px] p-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl shadow-2xl rounded-xl border-2 border-gray-200 dark:border-gray-700">
-                  <Command className="w-full">
+                <PopoverContent className="w-full min-w-[250px] p-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl shadow-2xl rounded-xl border-2 border-gray-200 dark:border-gray-700">
+                  <Command className="w-full min-w-[300px] sm:min-w-[350px] md:min-w-[400px] lg:min-w-[500px] xl:min-w-[600px] 2xl:min-w-[700px] max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-4xl 2xl:max-w-5xl mx-auto">
                     <CommandInput
                       placeholder={element.placeholder}
                       className="h-12 text-base"
@@ -499,7 +502,7 @@ export default function Page() {
                       <CommandGroup>
                         {options.map((framework) => (
                           <CommandItem
-                            key={framework.value}
+                            key={framework.value + framework.department}
                             value={framework.value}
                             onSelect={(currentValue) => {
                               setValue(currentValue);
@@ -508,9 +511,16 @@ export default function Page() {
                             }}
                             className="flex items-center justify-between cursor-pointer p-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50 dark:hover:from-blue-900/20 dark:hover:to-cyan-900/20 rounded-lg mx-2 my-1"
                           >
-                            <span className="font-medium">
+                            <span className="font-medium flex-1">
                               {framework.label}
                             </span>
+                            {user.role === "admin" &&
+                              (user.department == "HR" ||
+                                user.department == "Media") && (
+                                <span className="font-medium absolute right-8 transform -translate-y-1/2 top-1/2 text-gray-400 ">
+                                  {framework.department}
+                                </span>
+                              )}
                             <Check
                               className={cn(
                                 "h-5 w-5 text-blue-600",
@@ -627,7 +637,11 @@ export default function Page() {
 
       case "dropdown":
         return (
-          <div key={element.id} className="group relative">
+          <div
+            key={element.id}
+            className="group relative"
+            dir={formData?.direction}
+          >
             <div
               className={`absolute -inset-0.5 bg-gradient-to-r ${gradientColor} rounded-xl blur opacity-20 group-hover:opacity-40 transition duration-300`}
             ></div>
@@ -646,6 +660,7 @@ export default function Page() {
                 </Label>
               </div>
               <Select
+                dir={formData?.direction}
                 value={formInputs[element.label] || ""}
                 onValueChange={(value) =>
                   handleSelectChange(element.label, value)
@@ -665,7 +680,7 @@ export default function Page() {
                   {element.options?.map((option) => (
                     <SelectItem
                       key={option.id}
-                      value={option.id}
+                      value={option.label}
                       className="cursor-pointer p-3 hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50 dark:hover:from-orange-900/20 dark:hover:to-amber-900/20 rounded-lg mx-2 my-1 font-medium"
                     >
                       {option.label}

@@ -230,7 +230,7 @@ export const useAttendanceData = ({
         }
       }
 
-      // Determine attendance status
+
       // Determine attendance status
       let attendanceStatus = "unassigned";
       let statusMessage = "No schedule assigned";

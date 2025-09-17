@@ -67,6 +67,7 @@ const EmployeeCVPrintPage = () => {
     async function fetchData() {
       try {
         const res = await axios.get(`${url}employeeProfile/fetchById/${id}`);
+
         setEmployee(res.data);
       } catch (error) {
         console.error("Error fetching employee data:", error);

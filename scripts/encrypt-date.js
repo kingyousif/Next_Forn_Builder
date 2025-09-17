@@ -7,6 +7,6 @@ function encryptData(data) {
   return CryptoJS.AES.encrypt(data, SECRET_KEY).toString();
 }
 
-const originalDate = "01-01-2025";
+// const originalDate = "01-01-2025";
 const encryptedDate = encryptData(originalDate);
 

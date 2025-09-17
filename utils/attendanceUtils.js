@@ -92,21 +92,59 @@ export const calculateWorkDurationWithCrossDay = (
 
 // Enhanced total hours calculation with late, early, and extra time tracking
 export const calculateTotalHours = (filteredData) => {
+  // Group check-in records by date and user to avoid double counting
   const checkInRecords = filteredData.filter(
     (record) => record.status === "Check-in" && record.workDuration
   );
 
-  const totalMinutes = checkInRecords.reduce((total, record) => {
+  // Group by date and user ID to get unique daily records
+  const dailyRecords = checkInRecords.reduce((acc, record) => {
+    const recordDate = new Date(record.timestamp);
+    const dateKey = recordDate.toDateString(); // e.g., "Mon Feb 01 2023"
+    const userKey = record.employee?.id || record.userId || "unknown";
+    const compositeKey = `${dateKey}-${userKey}`;
+
+    if (
+      !acc[compositeKey] ||
+      (record.workDuration?.totalMinutes || 0) >
+        (acc[compositeKey].workDuration?.totalMinutes || 0)
+    ) {
+      acc[compositeKey] = record;
+    }
+
+    return acc;
+  }, {});
+
+  // Convert back to array and calculate total
+  const uniqueDailyRecords = Object.values(dailyRecords);
+
+  const totalMinutes = uniqueDailyRecords.reduce((total, record) => {
     return total + (record.workDuration?.totalMinutes || 0);
   }, 0);
 
-  // Calculate late time statistics
+  // Calculate late time statistics (also group by date and user)
   const lateRecords = filteredData.filter(
     (record) =>
       record.status === "Check-in" && record.attendanceStatus === "late"
   );
 
-  const totalLateMinutes = lateRecords.reduce((total, record) => {
+  // Group late records by date and user
+  const dailyLateRecords = lateRecords.reduce((acc, record) => {
+    const recordDate = new Date(record.timestamp);
+    const dateKey = recordDate.toDateString();
+    const userKey = record.employee?.id || record.userId || "unknown";
+    const compositeKey = `${dateKey}-${userKey}`;
+
+    if (!acc[compositeKey]) {
+      acc[compositeKey] = record;
+    }
+
+    return acc;
+  }, {});
+
+  const uniqueLateRecords = Object.values(dailyLateRecords);
+
+  const totalLateMinutes = uniqueLateRecords.reduce((total, record) => {
     if (record.profile && record.employee) {
       const recordDate = new Date(record.timestamp);
       const recordTime = format(recordDate, "HH:mm");
@@ -129,13 +167,29 @@ export const calculateTotalHours = (filteredData) => {
     return total;
   }, 0);
 
-  // Calculate early time statistics
+  // Calculate early time statistics (group by date and user)
   const earlyRecords = filteredData.filter(
     (record) =>
       record.status === "Check-out" && record.attendanceStatus === "early"
   );
 
-  const totalEarlyMinutes = earlyRecords.reduce((total, record) => {
+  // Group early records by date and user
+  const dailyEarlyRecords = earlyRecords.reduce((acc, record) => {
+    const recordDate = new Date(record.timestamp);
+    const dateKey = recordDate.toDateString();
+    const userKey = record.employee?.id || record.userId || "unknown";
+    const compositeKey = `${dateKey}-${userKey}`;
+
+    if (!acc[compositeKey]) {
+      acc[compositeKey] = record;
+    }
+
+    return acc;
+  }, {});
+
+  const uniqueEarlyRecords = Object.values(dailyEarlyRecords);
+
+  const totalEarlyMinutes = uniqueEarlyRecords.reduce((total, record) => {
     if (record.profile && record.employee) {
       const recordDate = new Date(record.timestamp);
       const recordTime = format(recordDate, "HH:mm");
@@ -158,13 +212,32 @@ export const calculateTotalHours = (filteredData) => {
     return total;
   }, 0);
 
-  // Calculate extra time statistics
+  // Calculate extra time statistics (group by date and user)
   const extraTimeRecords = filteredData.filter(
     (record) =>
       record.status === "Check-out" && record.attendanceStatus === "extra-time"
   );
 
-  const totalExtraMinutes = extraTimeRecords.reduce((total, record) => {
+  // Group extra time records by date and user
+  const dailyExtraRecords = extraTimeRecords.reduce((acc, record) => {
+    const recordDate = new Date(record.timestamp);
+    const dateKey = recordDate.toDateString();
+    const userKey = record.employee?.id || record.userId || "unknown";
+    const compositeKey = `${dateKey}-${userKey}`;
+
+    if (
+      !acc[compositeKey] ||
+      (record.extraTimeMinutes || 0) > (acc[compositeKey].extraTimeMinutes || 0)
+    ) {
+      acc[compositeKey] = record;
+    }
+
+    return acc;
+  }, {});
+
+  const uniqueExtraRecords = Object.values(dailyExtraRecords);
+
+  const totalExtraMinutes = uniqueExtraRecords.reduce((total, record) => {
     return total + (record.extraTimeMinutes || 0);
   }, 0);
 
@@ -184,25 +257,25 @@ export const calculateTotalHours = (filteredData) => {
     hours,
     minutes,
     totalMinutes,
-    recordCount: checkInRecords.length,
+    recordCount: uniqueDailyRecords.length, // Now shows unique daily records
     // New statistics
     lateTime: {
       hours: lateHours,
       minutes: lateMinutesRemainder,
       totalMinutes: totalLateMinutes,
-      count: lateRecords.length,
+      count: uniqueLateRecords.length,
     },
     earlyTime: {
       hours: earlyHours,
       minutes: earlyMinutesRemainder,
       totalMinutes: totalEarlyMinutes,
-      count: earlyRecords.length,
+      count: uniqueEarlyRecords.length,
     },
     extraTime: {
       hours: extraHours,
       minutes: extraMinutesRemainder,
       totalMinutes: totalExtraMinutes,
-      count: extraTimeRecords.length,
+      count: uniqueExtraRecords.length,
     },
   };
 };
@@ -356,118 +429,183 @@ export const printFilteredData = (data, totalHours, filters) => {
     <head>
       <title>Attendance Report</title>
       <style>
+        * { box-sizing: border-box; }
         body {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
           margin: 0;
-          padding: 20px;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          padding: 16px;
+          background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
           min-height: 100vh;
+          font-size: 14px;
         }
         .container {
-          background: white;
-          border-radius: 15px;
-          padding: 30px;
-          box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-          max-width: 1200px;
+          background: #ffffff;
+          border-radius: 12px;
+          padding: 24px;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+          max-width: 1100px;
           margin: 0 auto;
         }
         .header {
-          text-align: center;
-          margin-bottom: 30px;
-          border-bottom: 3px solid #667eea;
-          padding-bottom: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 20px;
+          padding-bottom: 16px;
+          border-bottom: 2px solid #f1f5f9;
         }
-        .header h1 {
-          color: #2d3748;
-          font-size: 2.5em;
+        .header-left h1 {
+          color: #1e293b;
+          font-size: 1.75rem;
           margin: 0;
           font-weight: 700;
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
-        .header p {
-          color: #718096;
-          font-size: 1.1em;
-          margin: 10px 0 0 0;
+        .header-left p {
+          color: #64748b;
+          font-size: 0.875rem;
+          margin: 4px 0 0 0;
+          font-weight: 500;
         }
         .summary {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 20px;
-          margin-bottom: 30px;
+          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+          gap: 12px;
+          margin-bottom: 20px;
         }
         .summary-card {
-          background: linear-gradient(135deg, #667eea, #764ba2);
+          background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
           color: white;
-          padding: 20px;
-          border-radius: 10px;
+          padding: 16px;
+          border-radius: 8px;
           text-align: center;
+          position: relative;
+          overflow: hidden;
+        }
+        .summary-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          right: 0;
+          width: 40px;
+          height: 40px;
+          background: rgba(255,255,255,0.1);
+          border-radius: 50%;
+          transform: translate(15px, -15px);
         }
         .summary-card h3 {
-          margin: 0 0 10px 0;
-          font-size: 1.2em;
+          margin: 0 0 8px 0;
+          font-size: 0.75rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          opacity: 0.9;
         }
         .summary-card p {
           margin: 0;
-          font-size: 1.5em;
-          font-weight: bold;
+          font-size: 1.5rem;
+          font-weight: 700;
+        }
+        .table-container {
+          background: white;
+          border-radius: 8px;
+          overflow: hidden;
+          border: 1px solid #e2e8f0;
         }
         table {
           width: 100%;
           border-collapse: collapse;
-          margin-top: 20px;
-          background: white;
-          border-radius: 10px;
-          overflow: hidden;
-          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+          font-size: 0.8rem;
         }
         th {
-          background: linear-gradient(135deg, #667eea, #764ba2);
-          color: white;
-          padding: 15px 10px;
+          background: #f8fafc;
+          color: #374151;
+          padding: 12px 8px;
           text-align: left;
           font-weight: 600;
-          font-size: 0.9em;
+          font-size: 0.75rem;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          border-bottom: 2px solid #e2e8f0;
         }
         td {
-          padding: 12px 10px;
-          border-bottom: 1px solid #e2e8f0;
-          font-size: 0.85em;
-        }
-        tr:nth-child(even) {
-          background-color: #f8fafc;
+          padding: 10px 8px;
+          border-bottom: 1px solid #f1f5f9;
+          vertical-align: top;
         }
         tr:hover {
-          background-color: #edf2f7;
+          background-color: #f8fafc;
+        }
+        .employee-info {
+          font-weight: 600;
+          color: #1e293b;
+          line-height: 1.3;
+        }
+        .employee-id {
+          font-size: 0.7rem;
+          color: #64748b;
+          font-weight: 400;
+        }
+        .date-time {
+          color: #475569;
+          font-weight: 500;
         }
         .badge {
-          padding: 4px 8px;
-          border-radius: 20px;
-          font-size: 0.75em;
+          padding: 3px 8px;
+          border-radius: 12px;
+          font-size: 0.65rem;
           font-weight: 600;
           text-transform: uppercase;
+          letter-spacing: 0.3px;
+          display: inline-block;
         }
-        .badge-success { background: #48bb78; color: white; }
-        .badge-danger { background: #f56565; color: white; }
-        .badge-warning { background: #ed8936; color: white; }
-        .badge-secondary { background: #a0aec0; color: white; }
+        .badge-success { background: #dcfce7; color: #166534; }
+        .badge-danger { background: #fef2f2; color: #dc2626; }
+        .badge-warning { background: #fef3c7; color: #d97706; }
+        .badge-secondary { background: #f1f5f9; color: #64748b; }
+        .profile-info {
+          color: #475569;
+          line-height: 1.3;
+        }
+        .profile-schedule {
+          font-size: 0.7rem;
+          color: #64748b;
+        }
         .footer {
-          margin-top: 30px;
+          margin-top: 20px;
           text-align: center;
-          color: #718096;
-          font-size: 0.9em;
-          border-top: 1px solid #e2e8f0;
-          padding-top: 20px;
+          color: #64748b;
+          font-size: 0.8rem;
+          padding-top: 16px;
+          border-top: 1px solid #f1f5f9;
         }
         @media print {
-          body { background: white !important; }
-          .container { box-shadow: none !important; }
+          body { 
+            background: white !important; 
+            padding: 0 !important;
+          }
+          .container { 
+            box-shadow: none !important; 
+            border-radius: 0 !important;
+          }
+        }
+        @media (max-width: 768px) {
+          .header { flex-direction: column; align-items: flex-start; }
+          .summary { grid-template-columns: 1fr; }
+          table { font-size: 0.75rem; }
+          th, td { padding: 8px 6px; }
         }
       </style>
     </head>
     <body>
       <div class="container">
         <div class="header">
-          <h1>📊 Attendance Report</h1>
-          <p>Generated on ${format(new Date(), "MMMM dd, yyyy at HH:mm")}</p>
+          <div class="header-left">
+            <h1>📋 Attendance Report</h1>
+            <p>Generated on ${format(new Date(), "MMM dd, yyyy • HH:mm")}</p>
+          </div>
         </div>
         
         <div class="summary">
@@ -476,78 +614,88 @@ export const printFilteredData = (data, totalHours, filters) => {
             <p>${data.length}</p>
           </div>
           <div class="summary-card">
-            <h3>Check-in Records</h3>
+            <h3>Check-ins</h3>
             <p>${totalHours.recordCount}</p>
           </div>
           <div class="summary-card">
             <h3>Total Hours</h3>
             <p>${totalHours.hours}h ${totalHours.minutes}m</p>
           </div>
-          <div class="summary-card">
-            <h3>Employee Filter</h3>
-            <p>${filters.employee || "All"}</p>
-          </div>
         </div>
         
-        <table>
-          <thead>
-            <tr>
-              <th>Employee</th>
-              <th>Date</th>
-              <th>Time</th>
-              <th>Status</th>
-              <th>Attendance</th>
-              <th>Duration</th>
-              <th>Profile</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${data
-              .map(
-                (record) => `
+        <div class="table-container">
+          <table>
+            <thead>
               <tr>
-                <td><strong>${
-                  record.employee?.name || "Unknown"
-                }</strong><br><small>ID: ${
-                  record.employee?.userId || "N/A"
-                }</small></td>
-                <td>${format(new Date(record.timestamp), "MMM dd, yyyy")}</td>
-                <td>${format(new Date(record.timestamp), "HH:mm:ss")}</td>
-                <td><span class="badge ${
-                  record.status === "Check-in"
-                    ? "badge-success"
-                    : "badge-danger"
-                }">${record.status}</span></td>
-                <td><span class="badge ${
-                  record.attendanceStatus === "on-time"
-                    ? "badge-success"
-                    : record.attendanceStatus === "late"
-                    ? "badge-danger"
-                    : record.attendanceStatus === "early"
-                    ? "badge-warning"
-                    : "badge-secondary"
-                }">${record.attendanceStatus}</span></td>
-                <td>${
-                  record.workDuration
-                    ? `${record.workDuration.hours}h ${record.workDuration.minutes}m`
-                    : "N/A"
-                }</td>
-                <td>${record.profile?.name || "Unassigned"}<br><small>${
-                  record.profile?.scheduleType || "N/A"
-                }</small></td>
+                <th>Employee</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Status</th>
+                <th>Attendance</th>
+                <th>Duration</th>
+                <th>Profile</th>
               </tr>
-            `
-              )
-              .join("")}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              ${data
+                .map(
+                  (record) => `
+                <tr>
+                  <td>
+                    <div class="employee-info">${
+                      record.employee?.name || "Unknown"
+                    }</div>
+                    <div class="employee-id">ID: ${
+                      record.employee?.userId || "N/A"
+                    }</div>
+                  </td>
+                  <td class="date-time">${format(
+                    new Date(record.timestamp),
+                    "yyyy-MM-dd"
+                  )}</td>
+                  <td class="date-time">${format(
+                    new Date(record.timestamp),
+                    "HH:mm:ss"
+                  )}</td>
+                  <td><span class="badge ${
+                    record.status === "Check-in"
+                      ? "badge-success"
+                      : "badge-danger"
+                  }">${record.status}</span></td>
+                  <td><span class="badge ${
+                    record.attendanceStatus === "on-time"
+                      ? "badge-success"
+                      : record.attendanceStatus === "late"
+                      ? "badge-danger"
+                      : record.attendanceStatus === "early"
+                      ? "badge-warning"
+                      : "badge-secondary"
+                  }">${record.attendanceStatus}</span></td>
+                  <td class="date-time">${
+                    record.workDuration
+                      ? `${record.workDuration.hours}h ${record.workDuration.minutes}m`
+                      : "N/A"
+                  }</td>
+                  <td>
+                    <div class="profile-info">${
+                      record.profile?.name || "Unassigned"
+                    }</div>
+                    <div class="profile-schedule">${
+                      record.profile?.scheduleType || "N/A"
+                    }</div>
+                  </td>
+                </tr>
+              `
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </div>
         
         <div class="footer">
-          <p>This report contains ${
-            data.length
-          } attendance records with a total of ${totalHours.hours} hours and ${
+          <p>Report contains ${data.length} records • ${totalHours.hours}h ${
     totalHours.minutes
-  } minutes of work time.</p>
+  }m total work time</p>
         </div>
       </div>
     </body>
@@ -575,119 +723,205 @@ export const printInvoice = (
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Invoice - ${employeeName}</title>
+      <title>Attendance Report - ${employeeName}</title>
       <style>
         body {
-          font-family: 'Courier New', monospace;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
           margin: 0;
-          padding: 10px;
-          font-size: 12px;
-          line-height: 1.4;
+          padding: 15px;
+          font-size: 11px;
+          line-height: 1.5;
           width: 58mm;
           background: white;
+          color: #333;
         }
-        .invoice {
-          text-align: center;
-          border: 2px solid #000;
-          padding: 10px;
+        .report {
+          border: 1px solid #2c5aa0;
+          border-radius: 8px;
+          overflow: hidden;
+          background: white;
         }
         .header {
-          border-bottom: 1px dashed #000;
-          padding-bottom: 10px;
-          margin-bottom: 10px;
+          background: linear-gradient(135deg, #2c5aa0 0%, #1e3d6f 100%);
+          color: white;
+          padding: 12px;
+          text-align: center;
+          position: relative;
         }
-        .title {
-          font-size: 16px;
-          font-weight: bold;
-          margin-bottom: 5px;
+        .logo {
+          width: 24px;
+          height: 24px;
+          margin: 0 auto 8px;
+          background: white;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
         }
-        .subtitle {
+        .logo img {
+          width: 20px;
+          height: 20px;
+          object-fit: contain;
+        }
+        .hospital-name {
+          font-size: 14px;
+          font-weight: 700;
+          margin-bottom: 2px;
+          letter-spacing: 0.5px;
+        }
+        .report-title {
           font-size: 10px;
-          margin-bottom: 10px;
+          opacity: 0.9;
+          font-weight: 400;
+        }
+        .content {
+          padding: 12px;
         }
         .section {
-          margin: 10px 0;
-          text-align: left;
+          margin-bottom: 12px;
         }
-        .section-title {
-          font-weight: bold;
-          border-bottom: 1px solid #000;
-          margin-bottom: 5px;
+        .section-header {
+          background: #f8f9fa;
+          color: #2c5aa0;
+          font-weight: 600;
+          font-size: 9px;
+          padding: 4px 8px;
+          margin: -2px -2px 6px -2px;
+          border-left: 3px solid #2c5aa0;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
         }
-        .row {
+        .info-row {
           display: flex;
           justify-content: space-between;
-          margin: 3px 0;
+          align-items: center;
+          margin: 4px 0;
+          padding: 2px 0;
         }
-        .total {
-          border-top: 1px dashed #000;
-          padding-top: 10px;
-          margin-top: 10px;
-          font-weight: bold;
-          font-size: 14px;
-        }
-        .footer {
-          border-top: 1px dashed #000;
-          padding-top: 10px;
-          margin-top: 10px;
+        .info-label {
+          font-weight: 500;
+          color: #666;
           font-size: 10px;
+        }
+        .info-value {
+          font-weight: 600;
+          color: #333;
+          font-size: 10px;
+        }
+        .summary-box {
+          background: linear-gradient(135deg, #e8f2ff 0%, #f0f7ff 100%);
+          border: 1px solid #2c5aa0;
+          border-radius: 6px;
+          padding: 8px;
+          margin: 8px 0;
           text-align: center;
         }
+        .total-hours {
+          font-size: 16px;
+          font-weight: 700;
+          color: #2c5aa0;
+          margin-bottom: 2px;
+        }
+        .total-label {
+          font-size: 8px;
+          color: #666;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .footer {
+          border-top: 1px solid #e0e0e0;
+          padding: 8px 12px;
+          background: #f8f9fa;
+          text-align: center;
+          font-size: 8px;
+          color: #666;
+        }
+        .generated-info {
+          margin-bottom: 4px;
+        }
+        .hospital-footer {
+          font-weight: 500;
+          color: #2c5aa0;
+        }
+        .divider {
+          height: 1px;
+          background: linear-gradient(to right, transparent, #e0e0e0, transparent);
+          margin: 8px 0;
+        }
         @media print {
-          body { width: 58mm; }
+          body { 
+            width: 58mm;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
         }
       </style>
     </head>
     <body>
-      <div class="invoice">
+      <div class="report">
         <div class="header">
-          <div class="title">⏰ ATTENDANCE INVOICE</div>
-          <div class="subtitle">Work Hours Summary</div>
+          <div class="logo">
+            <img src="/harem.png" alt="Hospital Logo" />
+          </div>
+          <div class="hospital-name">HAREM HOSPITAL</div>
+          <div class="report-title">Staff Attendance Report</div>
         </div>
         
-        <div class="section">
-          <div class="section-title">EMPLOYEE DETAILS</div>
-          <div class="row">
-            <span>Name:</span>
-            <span>${employeeName}</span>
+        <div class="content">
+          <div class="section">
+            <div class="section-header">Employee Information</div>
+            <div class="info-row">
+              <span class="info-label">Full Name:</span>
+              <span class="info-value">${employeeName}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Department:</span>
+              <span class="info-value">${profileName}</span>
+            </div>
           </div>
-          <div class="row">
-            <span>Profile:</span>
-            <span>${profileName}</span>
+          
+          <div class="divider"></div>
+          
+          <div class="section">
+            <div class="section-header">Reporting Period</div>
+            <div class="info-row">
+              <span class="info-label">Start Date:</span>
+              <span class="info-value">${dateFrom || "N/A"}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">End Date:</span>
+              <span class="info-value">${
+                dateTo || format(new Date(), "yyyy-MM-dd")
+              }</span>
+            </div>
           </div>
-        </div>
-        
-        <div class="section">
-          <div class="section-title">PERIOD</div>
-          <div class="row">
-            <span>From:</span>
-            <span>${dateFrom || "N/A"}</span>
+          
+          <div class="divider"></div>
+          
+          <div class="section">
+            <div class="section-header">Attendance Summary</div>
+            <div class="info-row">
+              <span class="info-label">Total Days:</span>
+              <span class="info-value">${totalHours.recordCount} Day</span>
+            </div>
           </div>
-          <div class="row">
-            <span>To:</span>
-            <span>${dateTo || "N/A"}</span>
+          
+          <div class="summary-box">
+            <div class="total-hours">${totalHours.hours}h ${
+    totalHours.minutes
+  }m</div>
+            <div class="total-label">Total Working Hours</div>
           </div>
-        </div>
-        
-        <div class="section">
-          <div class="section-title">WORK SUMMARY</div>
-          <div class="row">
-            <span>Total Hours:</span>
-            <span>${totalHours.hours}h ${totalHours.minutes}m</span>
-          </div>
-          <div class="row">
-            <span>Check-ins:</span>
-            <span>${totalHours.recordCount}</span>
-          </div>
-        </div>
-        
-        <div class="total">
-          TOTAL: ${totalHours.hours}h ${totalHours.minutes}m
         </div>
         
         <div class="footer">
-          Generated: ${format(new Date(), "dd/MM/yyyy HH:mm")}<br>
-          Thank you! 🙏
+          <div class="generated-info">
+            Report Generated: ${format(new Date(), "dd/MM/yyyy 'at' HH:mm")}
+          </div>
+          <div class="hospital-footer">
+            Harem Hospital - Developed by Harem IT
+          </div>
         </div>
       </div>
     </body>

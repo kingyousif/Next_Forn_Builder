@@ -152,11 +152,6 @@ const EmployeeProfilePage = () => {
     fetchData();
   }, [user]);
 
-  // Save to localStorage whenever employees change
-  useEffect(() => {
-    localStorage.setItem("employeeProfiles", JSON.stringify(employees));
-  }, [employees]);
-
   // Fetch users from database
   const fetchDatabaseUsers = async () => {
     if (!user || !url) return;
