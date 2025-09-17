@@ -33,6 +33,8 @@ import {
   CalendarDays,
   Award,
   BookOpen,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -59,6 +61,7 @@ export function DashboardSidebar() {
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const { role } = useAuth();
 
@@ -107,13 +110,13 @@ export function DashboardSidebar() {
           title: "Swaping Workers",
           href: "/dashboard/swaping-workers",
           icon: UserCog,
-          roles: ["user", "super admin"],
+          roles: ["user"],
         },
         {
           title: "Selling Workers",
           href: "/dashboard/selling-workers",
           icon: ClipboardList,
-          roles: ["user", "super admin"],
+          roles: ["user"],
         },
         {
           title: "Manage Swaping",
@@ -188,7 +191,7 @@ export function DashboardSidebar() {
       ],
     },
     {
-      title: "Forms & Documents",
+      title: "Forms ",
       href: "/dashboard/forms",
       icon: FileText,
       roles: ["admin", "super admin"],
@@ -200,14 +203,15 @@ export function DashboardSidebar() {
           href: "/dashboard/form-builder",
           icon: FileText,
           roles: ["admin", "super admin"],
-        },
-        {
-          title: "Create New Form",
-          href: "/dashboard/form-builder/new",
-          icon: FileArchive,
-          roles: ["admin", "super admin"],
           isNew: true,
         },
+        // {
+        //   title: "Create New Form",
+        //   href: "/dashboard/form-builder/new",
+        //   icon: FileArchive,
+        //   roles: ["admin", "super admin"],
+        //   isNew: true,
+        // },
         {
           title: "Preview Forms",
           href: "/preview",
@@ -347,29 +351,47 @@ export function DashboardSidebar() {
       {/* Sidebar */}
       <div
         className={cn(
-          "fixed inset-y-0 left-0 z-40 w-72 transform border-r border-border/50 backdrop-blur-xl transition-all duration-300 ease-in-out md:relative md:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 transform border-r border-border/50 backdrop-blur-xl transition-all duration-300 ease-in-out md:relative md:translate-x-0",
           "bg-gradient-to-b from-background/95 via-background/90 to-background/95",
           "before:absolute before:inset-0 before:bg-gradient-to-b before:from-blue-500/5 before:via-transparent before:to-purple-500/5 before:pointer-events-none",
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          isOpen ? "translate-x-0" : "-translate-x-full",
+          isCollapsed ? "w-20" : "w-72"
         )}
       >
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hidden md:flex absolute -right-4 top-2 bg-primary  z-50 h-8 w-8 rounded-lg hover:bg-gradient-to-r hover:from-blue-500/10 hover:to-purple-500/10 transition-all duration-300"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+        >
+          {isCollapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
+        </Button>
         {/* Sidebar Header */}
         <div className="relative p-6 border-b border-border/50">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
-                <Sparkles className="h-5 w-5 text-white" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
+                  <Sparkles className="h-5 w-5 text-white" />
+                </div>
+                <div className="absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-background" />
               </div>
-              <div className="absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-background" />
+              {!isCollapsed && (
+                <div>
+                  <h2 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    Dashboard
+                  </h2>
+                  <p className="text-xs text-muted-foreground capitalize">
+                    {role || "User"} Panel
+                  </p>
+                </div>
+              )}
             </div>
-            <div>
-              <h2 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Dashboard
-              </h2>
-              <p className="text-xs text-muted-foreground capitalize">
-                {role || "User"} Panel
-              </p>
-            </div>
+            {/* Desktop Collapse Button */}
           </div>
         </div>
 
@@ -388,94 +410,122 @@ export function DashboardSidebar() {
                 onMouseLeave={() => setHoveredItem(null)}
               >
                 {item.submenu && item.submenu.length > 0 ? (
-                  <Collapsible
-                    open={openSubmenu === item.title}
-                    onOpenChange={() => toggleSubmenu(item.title)}
-                  >
-                    <CollapsibleTrigger asChild>
+                  isCollapsed ? (
+                    // When collapsed, navigate directly to main href
+                    <Link href={item.href}>
                       <Button
                         variant="ghost"
                         className={cn(
-                          "w-full justify-between h-12 px-4 rounded-xl transition-all duration-300 group relative overflow-hidden",
+                          "w-full justify-center h-12 px-4 rounded-xl transition-all duration-300 group relative overflow-hidden",
                           pathname.startsWith(item.href)
                             ? "bg-gradient-to-r from-blue-500/10 to-purple-500/10 text-blue-600 dark:text-blue-400 border border-blue-200/20 shadow-lg shadow-blue-500/10"
                             : "hover:bg-gradient-to-r hover:from-blue-500/5 hover:to-purple-500/5 hover:border-blue-200/10 border border-transparent",
                           hoveredItem === item.title && "scale-[1.02] shadow-lg"
                         )}
                       >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={cn(
-                              "p-2 rounded-lg transition-all duration-300",
-                              pathname.startsWith(item.href)
-                                ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
-                                : "bg-muted/50 group-hover:bg-gradient-to-r group-hover:from-blue-500/20 group-hover:to-purple-500/20"
-                            )}
-                          >
-                            <item.icon className="h-4 w-4" />
-                          </div>
-                          <span className="font-medium text-sm">
-                            {item.title}
-                          </span>
-                          {item.badge && (
-                            <Badge
-                              variant={item.isNew ? "default" : "secondary"}
-                              className={cn(
-                                "text-xs px-2 py-0.5 rounded-full",
-                                item.isNew
-                                  ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white"
-                                  : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                              )}
-                            >
-                              {item.badge}
-                            </Badge>
+                        <div
+                          className={cn(
+                            "p-2 rounded-lg transition-all duration-300",
+                            pathname.startsWith(item.href)
+                              ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
+                              : "bg-muted/50 group-hover:bg-gradient-to-r group-hover:from-blue-500/20 group-hover:to-purple-500/20"
                           )}
-                        </div>
-                        <div>
-                          <ChevronDown
-                            className={cn(
-                              "h-4 w-4 text-muted-foreground transition-transform duration-300",
-                              openSubmenu === item.title && "rotate-180"
-                            )}
-                          />
+                        >
+                          <item.icon className="h-4 w-4" />
                         </div>
                       </Button>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <div className="ml-6 mt-2 space-y-1 border-l-2 border-blue-100 dark:border-blue-900/30 pl-4">
-                        {item.submenu.map((subitem, subIndex) => (
-                          <div key={subitem.title}>
-                            <Link
-                              href={subitem.href}
+                    </Link>
+                  ) : (
+                    // When expanded, show collapsible submenu
+                    <Collapsible
+                      open={openSubmenu === item.title}
+                      onOpenChange={() => toggleSubmenu(item.title)}
+                    >
+                      <CollapsibleTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          className={cn(
+                            "w-full justify-between h-12 px-4 rounded-xl transition-all duration-300 group relative overflow-hidden",
+                            pathname.startsWith(item.href)
+                              ? "bg-gradient-to-r from-blue-500/10 to-purple-500/10 text-blue-600 dark:text-blue-400 border border-blue-200/20 shadow-lg shadow-blue-500/10"
+                              : "hover:bg-gradient-to-r hover:from-blue-500/5 hover:to-purple-500/5 hover:border-blue-200/10 border border-transparent",
+                            hoveredItem === item.title && "scale-[1.02] shadow-lg"
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
                               className={cn(
-                                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-300 group relative overflow-hidden",
-                                pathname === subitem.href
-                                  ? "bg-gradient-to-r from-blue-500/10 to-purple-500/10 text-blue-600 dark:text-blue-400 font-medium shadow-md"
-                                  : "text-muted-foreground hover:text-foreground hover:bg-gradient-to-r hover:from-blue-500/5 hover:to-purple-500/5"
+                                "p-2 rounded-lg transition-all duration-300",
+                                pathname.startsWith(item.href)
+                                  ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
+                                  : "bg-muted/50 group-hover:bg-gradient-to-r group-hover:from-blue-500/20 group-hover:to-purple-500/20"
                               )}
                             >
-                              <div
+                              <item.icon className="h-4 w-4" />
+                            </div>
+                            <span className="font-medium text-sm">
+                              {item.title}
+                            </span>
+                            {item.badge && (
+                              <Badge
+                                variant={item.isNew ? "default" : "secondary"}
                                 className={cn(
-                                  "p-1.5 rounded-md transition-all duration-300",
-                                  pathname === subitem.href
-                                    ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white"
-                                    : "bg-muted/30 group-hover:bg-blue-500/10"
+                                  "text-xs px-2 py-0.5 rounded-full",
+                                  item.isNew
+                                    ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white"
+                                    : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
                                 )}
                               >
-                                <subitem.icon className="h-3.5 w-3.5" />
-                              </div>
-                              <span>{subitem.title}</span>
-                              {subitem.isNew && (
-                                <Badge className="text-xs px-1.5 py-0.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white">
-                                  New
-                                </Badge>
-                              )}
-                            </Link>
+                                {item.badge}
+                              </Badge>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
+                          <div>
+                            <ChevronDown
+                              className={cn(
+                                "h-4 w-4 text-muted-foreground transition-transform duration-300",
+                                openSubmenu === item.title && "rotate-180"
+                              )}
+                            />
+                          </div>
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="ml-6 mt-2 space-y-1 border-l-2 border-blue-100 dark:border-blue-900/30 pl-4">
+                          {item.submenu.map((subitem, subIndex) => (
+                            <div key={subitem.title}>
+                              <Link
+                                href={subitem.href}
+                                className={cn(
+                                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-300 group relative overflow-hidden",
+                                  pathname === subitem.href
+                                    ? "bg-gradient-to-r from-blue-500/10 to-purple-500/10 text-blue-600 dark:text-blue-400 font-medium shadow-md"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-gradient-to-r hover:from-blue-500/5 hover:to-purple-500/5"
+                                )}
+                              >
+                                <div
+                                  className={cn(
+                                    "p-1.5 rounded-md transition-all duration-300",
+                                    pathname === subitem.href
+                                      ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white"
+                                      : "bg-muted/30 group-hover:bg-blue-500/10"
+                                  )}
+                                >
+                                  <subitem.icon className="h-3.5 w-3.5" />
+                                </div>
+                                <span>{subitem.title}</span>
+                                {subitem.isNew && (
+                                  <Badge className="text-xs px-1.5 py-0.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white">
+                                    New
+                                  </Badge>
+                                )}
+                              </Link>
+                            </div>
+                          ))}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  )
                 ) : (
                   <Link href={item.href}>
                     <Button
@@ -499,21 +549,25 @@ export function DashboardSidebar() {
                         >
                           <item.icon className="h-4 w-4" />
                         </div>
-                        <span className="font-medium text-sm">
-                          {item.title}
-                        </span>
-                        {item.badge && (
-                          <Badge
-                            variant={item.isNew ? "default" : "secondary"}
-                            className={cn(
-                              "text-xs px-2 py-0.5 rounded-full ml-auto",
-                              item.isNew
-                                ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white"
-                                : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                        {!isCollapsed && (
+                          <>
+                            <span className="font-medium text-sm">
+                              {item.title}
+                            </span>
+                            {item.badge && (
+                              <Badge
+                                variant={item.isNew ? "default" : "secondary"}
+                                className={cn(
+                                  "text-xs px-2 py-0.5 rounded-full ml-auto",
+                                  item.isNew
+                                    ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white"
+                                    : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                                )}
+                              >
+                                {item.badge}
+                              </Badge>
                             )}
-                          >
-                            {item.badge}
-                          </Badge>
+                          </>
                         )}
                       </div>
                     </Button>
@@ -525,17 +579,24 @@ export function DashboardSidebar() {
 
           {/* Sidebar Footer */}
           <div className="p-4 border-t border-border/50">
-            <div className="rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 p-4 border border-blue-200/20">
+            <div
+              className={cn(
+                "rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-200/20 transition-all duration-300",
+                isCollapsed ? "p-2" : "p-4"
+              )}
+            >
               <div className="flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
                   <Sparkles className="h-4 w-4 text-white" />
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Need Help?</p>
-                  <p className="text-xs text-muted-foreground">
-                    Contact support
-                  </p>
-                </div>
+                {!isCollapsed && (
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Need Help?</p>
+                    <p className="text-xs text-muted-foreground">
+                      Contact support
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

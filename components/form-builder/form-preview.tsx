@@ -51,7 +51,7 @@ export function FormPreview({ formData }: FormPreviewProps) {
       case "name":
         const [open, setOpen] = useState(false);
         const [value, setValue] = useState("");
-        const frameworks = element.options;
+        const frameworks = element.options || [];
 
         return (
           <div key={element.id} className="space-y-3 group">

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,8 @@ import {
   Timer,
   UserPlus,
   Plus,
+  ChevronsUpDown,
+  Check,
 } from "lucide-react";
 import {
   Dialog,
@@ -22,16 +24,30 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { toast } from "@/hooks/use-toast";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { format } from "date-fns";
-import { toast } from "@/hooks/use-toast";
+} from "../ui/select";
 
 // Memoized Badge Components for Performance
 export const AttendanceStatusBadge = React.memo(({ status }) => {
@@ -164,6 +180,7 @@ export const ManualAttendanceModal = React.memo(
       format(new Date(), "HH:mm")
     );
     const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [open, setOpen] = useState(false);
 
     const handleSubmit = React.useCallback(
       async (e) => {
@@ -187,6 +204,7 @@ export const ManualAttendanceModal = React.memo(
 
         try {
           const timestamp = new Date(`${selectedDate}T${selectedTime}:00`);
+          timestamp.setHours(timestamp.getHours());
 
           const attendanceData = {
             user_name: selectedEmployee,
@@ -245,21 +263,73 @@ export const ManualAttendanceModal = React.memo(
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="employee">Employee</Label>
-              <Select
-                value={selectedEmployee}
-                onValueChange={setSelectedEmployee}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select employee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees.map((employee) => (
-                    <SelectItem key={employee._id} value={employee.name}>
-                      {employee.name} (ID: {employee.userId})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="w-full justify-between h-10 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {selectedEmployee
+                      ? employees.find(
+                          (employee) => employee.name === selectedEmployee
+                        )?.name +
+                        ` (ID: ${
+                          employees.find(
+                            (employee) => employee.name === selectedEmployee
+                          )?.userId
+                        })`
+                      : "Select employee..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start">
+                  <Command>
+                    <CommandInput
+                      placeholder="Search employees..."
+                      className="h-9"
+                    />
+                    <CommandList>
+                      <CommandEmpty>No employee found.</CommandEmpty>
+                      <CommandGroup>
+                        {employees.map((employee) => (
+                          <CommandItem
+                            key={employee._id}
+                            value={employee.name}
+                            onSelect={(currentValue) => {
+                              setSelectedEmployee(
+                                currentValue === selectedEmployee
+                                  ? ""
+                                  : currentValue
+                              );
+                              setOpen(false);
+                            }}
+                            className="flex items-center justify-between"
+                          >
+                            <div className="flex flex-col">
+                              <span className="font-medium">
+                                {employee.name}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                ID: {employee.userId}
+                              </span>
+                            </div>
+                            <Check
+                              className={cn(
+                                "ml-auto h-4 w-4",
+                                selectedEmployee === employee.name
+                                  ? "opacity-100"
+                                  : "opacity-0"
+                              )}
+                            />
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="space-y-2">
